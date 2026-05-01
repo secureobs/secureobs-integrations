@@ -27,7 +27,7 @@ def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
     url = f"{api_url}/{path}"
     log.debug("POST %s (%d items)", url, len(payload))
     s = _session(api_key)
-    resp = s.post(url, json=payload, timeout=30, verify=True)
+    resp = s.post(url, json=payload, timeout=120, verify=True)
     if resp.status_code == 401:
         log.error("Authentication failed — check SECUREOBS_API_KEY.")
         import sys; sys.exit(1)
