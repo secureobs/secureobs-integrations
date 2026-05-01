@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-DEFAULT_API_URL = "https://secureobs-dashboard.azurewebsites.net/api"
+DEFAULT_API_URL = "https://api.secureobs.com/api"
 
 log = logging.getLogger(__name__)
 

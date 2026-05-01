@@ -31,10 +31,8 @@ def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
     if resp.status_code == 401:
         log.error("Authentication failed — check SECUREOBS_API_KEY.")
         import sys; sys.exit(1)
-    if resp.status_code == 500: 
-        log.error("API returned %s: %s", resp.status_code, resp.text)
     if not resp.ok:
-        log.error("API returned %s: %s", resp.status_code, resp.text[:200])
+        log.error("API returned %s: %s", resp.status_code, resp.text)
         import sys; sys.exit(2)
     return resp.json() if resp.content else {}
 
