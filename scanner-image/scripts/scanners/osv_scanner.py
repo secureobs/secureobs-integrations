@@ -57,9 +57,10 @@ def run(
     log.info("Running OSV-Scanner on %s", source_dir)
 
     candidates = (
-        ["osv-scanner", "scan", "source", "-r", source_dir, "--format", "json"],
-        ["osv-scanner", "scan", "-r", source_dir, "--format", "json"],
-        ["osv-scanner", "-r", source_dir, "--format", "json"],
+        ["osv-scanner", "--format", "json", "--recursive", source_dir],
+        ["osv-scanner", "--format", "json", "-r", source_dir],
+        ["osv-scanner", "scan", "--format", "json", "--recursive", source_dir],
+        ["osv-scanner", "scan", "--format", "json", "-r", source_dir],
     )
 
     stdout_text = ""

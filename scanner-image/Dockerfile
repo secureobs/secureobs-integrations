@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 LABEL maintainer="Jason Achkar Diab"
 
-ARG TRIVY_VERSION=0.59.1
+ARG TRIVY_VERSION=0.70.0
 ARG OSV_SCANNER_VERSION=v1.9.2
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && npm install -g eslint@8.57.0 eslint-plugin-security@2.1.1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_PATH=/usr/local/lib/node_modules
 
 WORKDIR /workspace
 COPY scripts/ /scripts/
