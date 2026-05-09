@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.3 — 2026-05-09
+
+**Bug fix (OSV-Scanner):** Rewrote scanner driver to prioritise JSON output over exit code. OSV-Scanner exits non-zero when individual lockfiles fail to parse (e.g. complex Maven `pom.xml` with unresolvable parent POMs) but may still emit valid JSON for files it *could* scan — those partial results are now captured instead of discarded. When no JSON is produced at all the driver returns zero findings instead of crashing the pipeline. Also reordered candidates to try v2.x syntax first.
+
+**Bug fix (ESLint, continued from v1.2.1):** Previous releases fixed the Dockerfile but the image was not rebuilt. This release triggers a fresh image build that includes `eslint-plugin-security@1.7.1`.
+
 ## v1.2.2 — 2026-05-09
 
 **Bug fix:** OSV-Scanner driver no longer crashes the pipeline on exit code `2` (partial scan — some lockfiles unresolvable) or when no JSON is produced. Both failure paths now return a graceful skip instead of calling `sys.exit(2)`. Removed unused `sys` import.
