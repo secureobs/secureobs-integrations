@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from typing import Any
 
@@ -7,6 +8,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 log = logging.getLogger(__name__)
+
+SCANNER_IMAGE_VERSION = os.environ.get("SECUREOBS_IMAGE_VERSION", "unknown")
 
 _RETRY = Retry(
     total=3,
@@ -30,7 +33,12 @@ def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
     url = f"{api_url}/{path}"
     log.debug("POST %s (%d items)", url, len(payload))
     s = _session(api_key)
-    resp = s.post(url, json=payload, timeout=120, verify=True)
+    enriched = [
+        {**item, "scannerImageVersion": SCANNER_IMAGE_VERSION}
+        if isinstance(item, dict) else item
+        for item in payload
+    ]
+    resp = s.post(url, json=enriched, timeout=120, verify=True)
     if resp.status_code == 401:
         log.error("Authentication failed — check SECUREOBS_API_KEY.")
         sys.exit(1)
