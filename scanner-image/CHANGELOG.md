@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.5 — 2026-05-09
+
+**Feature (scan summary):** After all scanners complete, `secureobs-scanner scan` now prints a formatted per-scanner summary table showing findings ingested, new-after-dedup count, and skip/error reasons. Unknown scanner keys (catalog ahead of image) and driver exceptions also appear in the table. The total line gives an at-a-glance count across all scanners. No change to exit codes or API behaviour.
+
 ## v1.2.4 — 2026-05-09
 
 **Fix (ESLint):** Upgrade to `eslint-plugin-security@^3.0.1`. v3 ships a proper flat-config `recommended` export that does not create a circular `plugins` reference under ESLint 8. Also removed the redundant `"plugins": ["security"]` key from `eslint-secureobs.json` — extending `plugin:security/recommended` already registers the plugin.

@@ -2,6 +2,8 @@
 import argparse
 import logging
 import sys
+from dataclasses import dataclass, field
+from typing import Optional
 
 import config
 import api_client
@@ -10,6 +12,16 @@ from scanners.registry import DEFAULT_KEYS, REGISTRY
 from pr_comments import azuredevops, github
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class _ScanRow:
+    key: str
+    status: str = "ok"          # ok | skipped | error | unknown
+    findings: int = 0
+    ingested: int = 0
+    new_after_dedup: int = 0
+    skip_reason: Optional[str] = None
 
 
 def _add_common_args(p: argparse.ArgumentParser) -> None:
@@ -41,6 +53,43 @@ def _resolve_active_scanners(
     return active
 
 
+def _print_scan_summary(rows: list[_ScanRow]) -> None:
+    """Print a formatted per-scanner summary table to the log."""
+    if not rows:
+        return
+
+    col_w = max(len(r.key) for r in rows) + 2
+    sep = "─" * (col_w + 36)
+
+    lines = [f"\n{sep}"]
+    for r in rows:
+        label = r.key.ljust(col_w)
+        if r.status == "skipped":
+            reason = r.skip_reason or "no_reason"
+            lines.append(f"  {label}SKIPPED  ({reason})")
+        elif r.status == "error":
+            lines.append(f"  {label}ERROR    (see above)")
+        elif r.status == "unknown":
+            lines.append(f"  {label}UNKNOWN  (driver not in catalog)")
+        else:
+            if r.findings == 0:
+                lines.append(f"  {label}0 findings")
+            else:
+                lines.append(
+                    f"  {label}{r.findings} finding(s)  "
+                    f"({r.new_after_dedup} new after dedup)"
+                )
+
+    total_findings = sum(r.findings for r in rows)
+    total_new = sum(r.new_after_dedup for r in rows)
+    lines.append(sep)
+    total_label = "Total".ljust(col_w)
+    lines.append(f"  {total_label}{total_findings} finding(s)  ({total_new} new after dedup)")
+    lines.append(sep)
+
+    log.info("\n".join(lines))
+
+
 def cmd_scan(args: argparse.Namespace) -> None:
     api_url = config.get_api_url()
     api_key = config.require_env("SECUREOBS_API_KEY")
@@ -56,6 +105,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
 
     enabled_keys = [str(entry.get("key", "?")) for entry in active]
     log.info("Active scanners for this run: %s", ", ".join(enabled_keys))
+
+    summary_rows: list[_ScanRow] = []
 
     for entry in active:
         key = entry.get("key")
@@ -73,6 +124,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 "image — pin to a newer tag once the driver ships.)",
                 key,
             )
+            summary_rows.append(_ScanRow(key=key, status="unknown"))
             continue
 
         try:
@@ -88,30 +140,45 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 "remaining scanners.",
                 key,
             )
+            summary_rows.append(_ScanRow(key=key, status="error"))
             continue
 
         if result.skipped:
+            reason = result.skip_reason or "(no reason given)"
             if result.exit_code is not None:
                 log.error(
                     "%s skipped due to non-zero exit (code %d): %s. stderr: %s",
                     key,
                     result.exit_code,
-                    result.skip_reason or "(no reason given)",
+                    reason,
                     result.stderr_tail or "(none)",
                 )
             else:
-                log.info("%s skipped: %s", key, result.skip_reason or "(no reason given)")
+                log.info("%s skipped: %s", key, reason)
+            summary_rows.append(_ScanRow(key=key, status="skipped", skip_reason=reason))
             continue
 
         if not result.findings:
             log.info("%s: no findings.", key)
+            summary_rows.append(_ScanRow(key=key, status="ok"))
             continue
 
         data = api_client.post_findings(api_url, api_key, driver.bulk_endpoint, result.findings)
         ingested = data.get("ingested", len(result.findings))
         deduped = data.get("deduplicated", 0)
+        new_count = ingested - deduped
         log.info("%s: %d finding(s) ingested (%d new after dedup).", key, ingested, deduped)
+        summary_rows.append(
+            _ScanRow(
+                key=key,
+                status="ok",
+                findings=ingested,
+                ingested=ingested,
+                new_after_dedup=new_count,
+            )
+        )
 
+    _print_scan_summary(summary_rows)
     log.info("Scan complete.")
 
 
