@@ -10,7 +10,6 @@ VERSION="$(cat "$SCRIPT_DIR/VERSION" | tr -d '[:space:]')"
 IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
 CODE_TEMPLATES="$REPO_ROOT/SecureObs.Dashboard/src/app/core/utils/code-templates.ts"
-FEATURES_TS="$REPO_ROOT/SecureObs.Dashboard/src/app/features/features/features.component.ts"
 
 # Portable sed -i (macOS needs a backup extension, Linux doesn't care)
 sedi() { sed -i.bak "$@" && rm -f "${@: -1}.bak"; }
@@ -26,15 +25,11 @@ else
     echo "  ⚠ code-templates.ts not found — skipping"
 fi
 
-# ── features.component.ts ─────────────────────────────────────────────────────
-if [ -f "$FEATURES_TS" ]; then
-    sedi "s/refs\/tags\/v[0-9][0-9.]*/refs\/tags\/v${VERSION}/g"                                      "$FEATURES_TS"
-    sedi "s/secureobs-integrations\/\.github\/workflows\/secureobs\.yml@v[0-9][0-9.]*/secureobs-integrations\/.github\/workflows\/secureobs.yml@v${VERSION}/g" "$FEATURES_TS"
-    sedi "s/imageTag:  'v[0-9]*'/imageTag:  'v${MAJOR}'/g"                                            "$FEATURES_TS"
-    sedi "s/image-tag:  v[0-9]*/image-tag:  v${MAJOR}/g"                                              "$FEATURES_TS"
-    echo "  ✔ features.component.ts  →  integrations tag=v${VERSION}  image tag=v${MAJOR}"
-else
-    echo "  ⚠ features.component.ts not found — skipping"
-fi
+# features.component.ts is intentionally excluded: its YAML examples are now
+# computed at runtime from IntegrationsVersionService.currentTag() so there
+# are no hardcoded version strings left to patch.
+
+# ── changelog.data.ts ────────────────────────────────────────────────────────
+node "$REPO_ROOT/scripts/generate-changelog.js"
 
 echo "  Version sync complete."

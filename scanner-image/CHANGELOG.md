@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.7 — 2026-05-10
+
+**Feature (CI automation):** Changelog is now auto-generated from this file on every scanner build — `scripts/generate-changelog.js` parses CHANGELOG.md and writes `changelog.data.ts`. EF Core migrations run automatically in CI via a migration bundle built and uploaded as an artifact before the API deploys.
+
+## v1.2.6 — 2026-05-10
+
+**Feature (version tracking):** Pipeline now reports its running image version on every ingest. The dashboard shows a real "update available" warning only when a project has actually scanned — no false positives from unconfigured pipelines.
+
 ## v1.2.5 — 2026-05-09
 
 **Feature (scan summary):** After all scanners complete, `secureobs-scanner scan` now prints a formatted per-scanner summary table showing findings ingested, new-after-dedup count, and skip/error reasons. Unknown scanner keys (catalog ahead of image) and driver exceptions also appear in the table. The total line gives an at-a-glance count across all scanners. No change to exit codes or API behaviour.
