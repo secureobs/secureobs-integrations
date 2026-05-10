@@ -30,6 +30,6 @@ fi
 # are no hardcoded version strings left to patch.
 
 # ── changelog.data.ts ────────────────────────────────────────────────────────
-node "$REPO_ROOT/scripts/generate-changelog.js"
+node "$REPO_ROOT/Scripts/generate-changelog.js"
 
 echo "  Version sync complete."
