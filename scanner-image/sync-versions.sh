@@ -17,7 +17,7 @@ sedi() { sed -i.bak "$@" && rm -f "${@: -1}.bak"; }
 echo "  Syncing versions → v${VERSION} (major: v${MAJOR})"
 
 # ── code-templates.ts ────────────────────────────────────────────────────────
-if [ -f "$CODE_TEMPLATES" ]; then
+if [[ -f "$CODE_TEMPLATES" ]]; then
     sedi "s/^export const SCANNER_IMAGE_TAG  = 'v[0-9]*';$/export const SCANNER_IMAGE_TAG  = 'v${MAJOR}';/" "$CODE_TEMPLATES"
     sedi "s/^export const INTEGRATIONS_TAG   = 'v[^']*';$/export const INTEGRATIONS_TAG   = 'v${VERSION}';/" "$CODE_TEMPLATES"
     echo "  ✔ code-templates.ts  →  SCANNER_IMAGE_TAG=v${MAJOR}  INTEGRATIONS_TAG=v${VERSION}"

@@ -10,6 +10,17 @@ parameters:
   type: boolean
   default: true
 
+# Why every templated parameter is passed through `env:` and referenced as
+# "$VAR" inside the script (including the image tag):
+#
+# Azure DevOps expands template-expression parameters (${{ parameters.* }})
+# at compile time. If a parameter contains a shell metacharacter (`, $(...),
+# &&, ; …) it becomes shell code in the final pipeline. Assigning the value
+# to an environment variable and referencing it as "$VAR" in the script lets
+# the shell receive it as a single argument string — shell expansion is
+# never re-applied to it. This is the standard mitigation for CWE-78 in
+# pipeline templates.
+
 stages:
 - stage: SecureObs_Scan
   displayName: 'SecureObs Security Scan'
@@ -24,13 +35,19 @@ stages:
     - script: |
         docker run --rm \
           -v "$(Build.SourcesDirectory):/workspace" \
-          -e SECUREOBS_API_KEY="$(SECUREOBS_API_KEY)" \
-          secureobs/scanner:${{ parameters.imageTag }} \
+          -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
+          "secureobs/scanner:$SECUREOBS_IMAGE_TAG" \
           scan \
-          --project-id "${{ parameters.projectId }}" \
-          --tenant-id "${{ parameters.tenantId }}" \
-          --pipeline-run-id "$(Build.BuildId)"
+          --project-id "$SECUREOBS_PROJECT_ID" \
+          --tenant-id "$SECUREOBS_TENANT_ID" \
+          --pipeline-run-id "$BUILD_BUILDID"
       displayName: 'Scan workspace (Semgrep, ESLint, Bandit, Gitleaks, OSV-Scanner, Checkov, Trivy)'
+      env:
+        SECUREOBS_API_KEY: $(SECUREOBS_API_KEY)
+        SECUREOBS_PROJECT_ID: ${{ parameters.projectId }}
+        SECUREOBS_TENANT_ID: ${{ parameters.tenantId }}
+        SECUREOBS_IMAGE_TAG: ${{ parameters.imageTag }}
+        BUILD_BUILDID: $(Build.BuildId)
 
   - job: PrComment
     displayName: 'Post PR comment'
@@ -42,21 +59,30 @@ stages:
     steps:
     - script: |
         docker run --rm \
-          -e SECUREOBS_API_KEY="$(SECUREOBS_API_KEY)" \
-          -e SYSTEM_ACCESSTOKEN="$(System.AccessToken)" \
-          -e SYSTEM_PULLREQUEST_PULLREQUESTID="$(System.PullRequest.PullRequestId)" \
-          -e BUILD_REPOSITORY_ID="$(Build.Repository.ID)" \
-          -e SYSTEM_TEAMPROJECT="$(System.TeamProject)" \
-          -e SYSTEM_TEAMFOUNDATIONCOLLECTIONURI="$(System.TeamFoundationCollectionUri)" \
-          secureobs/scanner:${{ parameters.imageTag }} \
+          -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
+          -e SYSTEM_ACCESSTOKEN="$SYSTEM_ACCESSTOKEN" \
+          -e SYSTEM_PULLREQUEST_PULLREQUESTID="$SYSTEM_PULLREQUEST_PULLREQUESTID" \
+          -e BUILD_REPOSITORY_ID="$BUILD_REPOSITORY_ID" \
+          -e SYSTEM_TEAMPROJECT="$SYSTEM_TEAMPROJECT" \
+          -e SYSTEM_TEAMFOUNDATIONCOLLECTIONURI="$SYSTEM_TEAMFOUNDATIONCOLLECTIONURI" \
+          "secureobs/scanner:$SECUREOBS_IMAGE_TAG" \
           pr-comment \
-          --project-id "${{ parameters.projectId }}" \
-          --tenant-id "${{ parameters.tenantId }}" \
-          --pipeline-run-id "$(Build.BuildId)" \
+          --project-id "$SECUREOBS_PROJECT_ID" \
+          --tenant-id "$SECUREOBS_TENANT_ID" \
+          --pipeline-run-id "$BUILD_BUILDID" \
           --platform azuredevops
       displayName: 'Post PR comment'
       env:
+        SECUREOBS_API_KEY: $(SECUREOBS_API_KEY)
+        SECUREOBS_PROJECT_ID: ${{ parameters.projectId }}
+        SECUREOBS_TENANT_ID: ${{ parameters.tenantId }}
+        SECUREOBS_IMAGE_TAG: ${{ parameters.imageTag }}
+        BUILD_BUILDID: $(Build.BuildId)
         SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+        SYSTEM_PULLREQUEST_PULLREQUESTID: $(System.PullRequest.PullRequestId)
+        BUILD_REPOSITORY_ID: $(Build.Repository.ID)
+        SYSTEM_TEAMPROJECT: $(System.TeamProject)
+        SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: $(System.TeamFoundationCollectionUri)
 
   - job: Gate
     displayName: 'Build gate'
@@ -72,10 +98,16 @@ stages:
     steps:
     - script: |
         docker run --rm \
-          -e SECUREOBS_API_KEY="$(SECUREOBS_API_KEY)" \
-          secureobs/scanner:${{ parameters.imageTag }} \
+          -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
+          "secureobs/scanner:$SECUREOBS_IMAGE_TAG" \
           gate \
-          --project-id "${{ parameters.projectId }}" \
-          --tenant-id "${{ parameters.tenantId }}" \
-          --pipeline-run-id "$(Build.BuildId)"
+          --project-id "$SECUREOBS_PROJECT_ID" \
+          --tenant-id "$SECUREOBS_TENANT_ID" \
+          --pipeline-run-id "$BUILD_BUILDID"
       displayName: 'Check for blocking findings'
+      env:
+        SECUREOBS_API_KEY: $(SECUREOBS_API_KEY)
+        SECUREOBS_PROJECT_ID: ${{ parameters.projectId }}
+        SECUREOBS_TENANT_ID: ${{ parameters.tenantId }}
+        SECUREOBS_IMAGE_TAG: ${{ parameters.imageTag }}
+        BUILD_BUILDID: $(Build.BuildId)

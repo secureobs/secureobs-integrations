@@ -32,7 +32,7 @@ def _gh_request(url: str, token: str, method: str = "GET", body: dict | None = N
         if e.code == 403:
             log.warning("PR comment: 403 Forbidden — tenant may not support PR comments on this tier. Skipping.")
             return None
-        log.error("GitHub API %s %s returned %d: %s", method, url, e.code, body_text)
+        log.exception("GitHub API %s %s returned %d: %s", method, url, e.code, body_text)
         sys.exit(2)
 
 

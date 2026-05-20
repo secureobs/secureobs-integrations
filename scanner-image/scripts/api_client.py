@@ -10,6 +10,7 @@ from urllib3.util.retry import Retry
 log = logging.getLogger(__name__)
 
 SCANNER_IMAGE_VERSION = os.environ.get("SECUREOBS_IMAGE_VERSION", "unknown")
+_AUTH_FAILED_MSG = "Authentication failed — check SECUREOBS_API_KEY."
 
 _RETRY = Retry(
     total=3,
@@ -40,7 +41,7 @@ def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
     ]
     resp = s.post(url, json=enriched, timeout=120, verify=True)
     if resp.status_code == 401:
-        log.error("Authentication failed — check SECUREOBS_API_KEY.")
+        log.error(_AUTH_FAILED_MSG)
         sys.exit(1)
     if not resp.ok:
         log.error("API returned %s: %s", resp.status_code, resp.text)
@@ -54,7 +55,7 @@ def get_blocking(api_url: str, api_key: str, pipeline_run_id: str) -> bool:
     s = _session(api_key)
     resp = s.get(url, timeout=15, verify=True)
     if resp.status_code == 401:
-        log.error("Authentication failed — check SECUREOBS_API_KEY.")
+        log.error(_AUTH_FAILED_MSG)
         sys.exit(1)
     if not resp.ok:
         log.error("Gate check returned %s: %s", resp.status_code, resp.text[:200])
@@ -87,7 +88,7 @@ def get_active_scanners(
         return None
 
     if resp.status_code == 401:
-        log.error("Authentication failed — check SECUREOBS_API_KEY.")
+        log.error(_AUTH_FAILED_MSG)
         sys.exit(1)
     if resp.status_code == 404:
         log.error(

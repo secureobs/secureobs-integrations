@@ -16,14 +16,11 @@ consistent DTO regardless of tooling. Keys must match backend ``Scanner.Key``.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Callable
 
 from . import bandit, checkov, eslint_security, gitleaks, osv_scanner, semgrep, trivy
 from .base import ScanResult
-
-log = logging.getLogger(__name__)
 
 DriverRunner = Callable[[str, str, str, "dict[str, str] | None"], ScanResult]
 
@@ -65,27 +62,6 @@ def _eslint_runner(w: str, p: str, r: str, c: dict | None) -> ScanResult:
     return eslint_security.run(w, p, r, c)
 
 
-def _external_toolchain_stub(key: str) -> DriverRunner:
-    """Sonar / Snyk / CodeQL / ZAP need hosted auth or vendor-specific CI steps."""
-
-    def _run(
-        workspace: str,
-        project_id: str,
-        pipeline_run_id: str,
-        config: dict | None,
-    ) -> ScanResult:
-        del workspace, project_id, pipeline_run_id, config
-        log.info(
-            "Skipping '%s' — not bundled in this image; wire it through your "
-            "vendor's CI (token, SARIF, or AST analysis) instead of expecting "
-            "the generic orchestrator bundle to run it.",
-            key,
-        )
-        return ScanResult(skipped=True, skip_reason="external_toolchain")
-
-    return _run
-
-
 REGISTRY: dict[str, Driver] = {
     "semgrep": Driver("semgrep", "findings/bulk-semgrep", _semgrep_runner),
     "gitleaks": Driver("gitleaks", "findings/bulk-gitleaks", _gitleaks_runner),
@@ -94,10 +70,10 @@ REGISTRY: dict[str, Driver] = {
     "eslint-security": Driver("eslint-security", _BULK_UNIVERSAL, _eslint_runner),
     "osv-scanner": Driver("osv-scanner", _BULK_UNIVERSAL, _osv_runner),
     "checkov": Driver("checkov", _BULK_UNIVERSAL, _checkov_runner),
-    "codeql": Driver("codeql", _BULK_UNIVERSAL, _external_toolchain_stub("codeql")),
-    "sonarqube": Driver("sonarqube", _BULK_UNIVERSAL, _external_toolchain_stub("sonarqube")),
-    "snyk": Driver("snyk", _BULK_UNIVERSAL, _external_toolchain_stub("snyk")),
-    "owasp-zap": Driver("owasp-zap", _BULK_UNIVERSAL, _external_toolchain_stub("owasp-zap")),
+    # codeql / sonarqube / snyk / owasp-zap are not bundled. They run inside a
+    # vendor's CI (token, SARIF, or AST analysis) and would only ever be added
+    # here when there is a real driver. The catalog hides them via
+    # IsEnabledGlobally=false in migration 20260520040000.
 }
 
 DEFAULT_KEYS: list[str] = ["semgrep", "gitleaks"]
