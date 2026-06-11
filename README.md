@@ -1,6 +1,6 @@
 # SecureObs Integrations
 
-Everything needed to integrate SecureObs into CI/CD pipelines.
+Everything that runs in the **customer's** CI/CD pipeline — as opposed to the rest of the repository, which is the SecureObs service itself. This folder exists so that the user-facing integration surface is one cohesive, versioned unit: it is mirrored on every `integrations-v*` tag to the public [`secureobs/secureobs-integrations`](https://github.com/secureobs/secureobs-integrations) repo (the main repo is private, but `extends:` / `uses:` template references require a public source — see ADR-006 in the root README).
 
 ---
 
@@ -8,9 +8,9 @@ Everything needed to integrate SecureObs into CI/CD pipelines.
 
 | Path | Description |
 |---|---|
-| [scanner-image/](scanner-image/) | Docker image bundling Semgrep, GitLeaks, and SecureObs orchestration |
-| [pipeline-templates/azuredevops/](pipeline-templates/azuredevops/) | Azure DevOps reusable pipeline template |
-| [pipeline-templates/github/](pipeline-templates/github/) | GitHub Actions reusable workflow |
+| [scanner-image/](scanner-image/) | The `secureobs/scanner` Docker image: Semgrep, GitLeaks, Trivy, Bandit, Checkov, OSV-Scanner, and ESLint (security plugin), plus the Python orchestrator exposing the `scan` / `gate` / `pr-comment` subcommands. This is the only artifact users actually execute. |
+| [pipeline-templates/azuredevops/](pipeline-templates/azuredevops/) | Azure DevOps `extends:` template wrapping the image's three subcommands in three jobs. **Requires a GitHub service connection** (`SecureObs-GitHub`) in the user's ADO project to fetch the template — which is why the dashboard now generates a self-contained `azure-pipelines.yml` by default and this template is the optional path. |
+| [pipeline-templates/github/](pipeline-templates/github/) | GitHub Actions reusable workflow (`workflow_call`) with `project-id` / `tenant-id` / `image-tag` / `fail-on-blocking` inputs and the `api-key` secret. No extra setup needed — public repos are directly `uses:`-able. |
 
 ---
 
@@ -18,9 +18,11 @@ Everything needed to integrate SecureObs into CI/CD pipelines.
 
 **Docker image:** `secureobs/scanner:v1` — [Docker Hub](https://hub.docker.com/r/secureobs/scanner) · [README](scanner-image/README.md)
 
-**Azure DevOps:** extend from `pipeline-templates/azuredevops/secureobs.yml` via the `secureobs/secureobs-integrations` public mirror.
+**Azure DevOps (recommended):** paste the self-contained YAML generated on your project page — runs the image directly, needs only the `SECUREOBS_API_KEY` secret variable, no service connections. See [docs/quickstart-azure-devops.md](../docs/quickstart-azure-devops.md).
 
-**GitHub Actions:** call `secureobs/secureobs-integrations/.github/workflows/secureobs.yml@v1.0.0`.
+**Azure DevOps (template variant):** extend from `pipeline-templates/azuredevops/secureobs.yml` via the `secureobs/secureobs-integrations` public mirror — requires a GitHub service connection named `SecureObs-GitHub` authorized for the pipeline. Declared parameters: `projectId`, `tenantId`, `imageTag`, `failOnBlocking` (passing anything else is a compile-time error in ADO).
+
+**GitHub Actions:** call `secureobs/secureobs-integrations/.github/workflows/secureobs.yml@v1` (or pin a specific tag). Declared inputs: `project-id`, `tenant-id`, `image-tag`, `fail-on-blocking`; secret: `api-key`.
 
 ---
 

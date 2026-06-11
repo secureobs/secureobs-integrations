@@ -6,6 +6,24 @@ Docker image bundling Semgrep, GitLeaks, Trivy, Bandit, Checkov, OSV-Scanner, ES
 
 ---
 
+## Folder architecture
+
+| Path | Purpose |
+|---|---|
+| `Dockerfile` | Builds the image: installs the scanner toolchain and the Python orchestrator. |
+| `VERSION` | Single source of truth for the image semver. CI bumps the patch on every change to this folder, builds/pushes the multi-tag image, and tags the repo `integrations-vX.Y.Z`. |
+| `build-and-push.sh`, `sync-versions.sh` | Manual publish / version-sync helpers for maintainers. |
+| `scripts/cli.py` | Entry point. Subcommands `scan`, `gate`, `pr-comment`; `--project-id`, `--tenant-id`, `--pipeline-run-id` are required CLI args on each. |
+| `scripts/config.py` | Env handling: `SECUREOBS_API_KEY` (required), `SECUREOBS_API_URL` (default `https://api.secureobs.com/api`), `SECUREOBS_DEBUG`. |
+| `scripts/api_client.py` | HTTP client with retry/backoff and the exit-code contract (1 auth, 2 transient/API error, 3 gate blocked). |
+| `scripts/scanners/` | One driver module per scanner + `registry.py` mapping catalog keys → drivers and ingest endpoints. Adding a scanner = adding a driver + registry entry; the orchestrator never changes. |
+| `scripts/build_gate.py` | Gate logic: queries `GET /api/findings/blocking` and exits 3 when blocked. |
+| `scripts/pr_comments/` | `github.py` / `azuredevops.py` — post or update-in-place a single marker-identified PR comment using the CI platform's own token. |
+
+The orchestrator asks the SecureObs API at the start of every run which scanners are enabled for the project (`GET /api/projects/{id}/scanners/active`), so users never edit pipeline YAML to add or remove a scanner.
+
+---
+
 ## Quick start
 
 ```bash
@@ -94,7 +112,7 @@ For GitHub Actions, use `--platform github` with `GH_TOKEN`, `GITHUB_REPOSITORY`
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SECUREOBS_API_KEY` | Yes | — | API key from your SecureObs tenant |
-| `SECUREOBS_API_URL` | No | `https://secureobs-dashboard.azurewebsites.net/api` | Override API base URL |
+| `SECUREOBS_API_URL` | No | `https://api.secureobs.com/api` | Override API base URL (self-hosting only; must include the `/api` suffix) |
 | `SECUREOBS_DEBUG` | No | — | Set to `1` for verbose debug logging |
 
 ### Additional variables for `pr-comment --platform azuredevops`
@@ -145,4 +163,4 @@ Pin to `v1` in pipelines to auto-receive minor/patch updates. Pin to `v1.0.0` fo
 
 ## SecureObs dashboard
 
-[https://secureobs-dashboard.azurewebsites.net](https://secureobs-dashboard.azurewebsites.net)
+[https://www.secureobs.com](https://www.secureobs.com)
