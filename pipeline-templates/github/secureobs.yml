@@ -33,10 +33,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Scan workspace
+      env:
+        SECUREOBS_API_KEY: ${{ secrets.api-key }}
       run: |
+        # Fail fast (clearer than a downstream 401) when the key is empty. The
+        # calling workflow must map it under secrets: (api-key: <secret>); note
+        # that 'secrets: inherit' does NOT populate the renamed 'api-key' secret.
+        if [ -z "${SECUREOBS_API_KEY:-}" ]; then
+          echo "::error::SECUREOBS_API_KEY is empty. Pass it from the caller under secrets: as 'api-key: <your SECUREOBS_API_KEY secret>'. 'secrets: inherit' will not populate it."
+          exit 1
+        fi
         docker run --rm \
           -v "${{ github.workspace }}:/workspace" \
-          -e SECUREOBS_API_KEY="${{ secrets.api-key }}" \
+          -e SECUREOBS_API_KEY \
           secureobs/scanner:${{ inputs.image-tag }} \
           scan \
           --project-id "${{ inputs.project-id }}" \
@@ -50,9 +59,18 @@ jobs:
     if: ${{ inputs.fail-on-blocking }}
     steps:
     - name: Check for blocking findings
+      env:
+        SECUREOBS_API_KEY: ${{ secrets.api-key }}
       run: |
+        # Fail fast (clearer than a downstream 401) when the key is empty. The
+        # calling workflow must map it under secrets: (api-key: <secret>); note
+        # that 'secrets: inherit' does NOT populate the renamed 'api-key' secret.
+        if [ -z "${SECUREOBS_API_KEY:-}" ]; then
+          echo "::error::SECUREOBS_API_KEY is empty. Pass it from the caller under secrets: as 'api-key: <your SECUREOBS_API_KEY secret>'. 'secrets: inherit' will not populate it."
+          exit 1
+        fi
         docker run --rm \
-          -e SECUREOBS_API_KEY="${{ secrets.api-key }}" \
+          -e SECUREOBS_API_KEY \
           secureobs/scanner:${{ inputs.image-tag }} \
           gate \
           --project-id "${{ inputs.project-id }}" \
@@ -69,9 +87,18 @@ jobs:
       pull-requests: write
     steps:
     - name: Post PR comment
+      env:
+        SECUREOBS_API_KEY: ${{ secrets.api-key }}
       run: |
+        # Fail fast (clearer than a downstream 401) when the key is empty. The
+        # calling workflow must map it under secrets: (api-key: <secret>); note
+        # that 'secrets: inherit' does NOT populate the renamed 'api-key' secret.
+        if [ -z "${SECUREOBS_API_KEY:-}" ]; then
+          echo "::error::SECUREOBS_API_KEY is empty. Pass it from the caller under secrets: as 'api-key: <your SECUREOBS_API_KEY secret>'. 'secrets: inherit' will not populate it."
+          exit 1
+        fi
         docker run --rm \
-          -e SECUREOBS_API_KEY="${{ secrets.api-key }}" \
+          -e SECUREOBS_API_KEY \
           -e GH_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
           -e GITHUB_REPOSITORY="${{ github.repository }}" \
           -e GITHUB_EVENT_NAME="${{ github.event_name }}" \

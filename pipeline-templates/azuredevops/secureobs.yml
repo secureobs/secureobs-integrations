@@ -33,6 +33,16 @@ stages:
     steps:
     - checkout: self
     - script: |
+        # Fail fast (clearer than a downstream 401) when the key is empty or
+        # still the unexpanded macro literal — i.e. the SECUREOBS_API_KEY secret
+        # variable, or the variable group that holds it, is not linked to this
+        # pipeline. Azure DevOps does not auto-expose secret variables to scripts.
+        case "${SECUREOBS_API_KEY:-}" in
+          ''|*SECUREOBS_API_KEY*)
+            echo "##vso[task.logissue type=error]SECUREOBS_API_KEY is not set on this pipeline. Add it as a secret variable, or link the variable group that holds it (Project settings -> Pipelines -> Library), then re-run. See docs/quickstart-azure-devops.md."
+            exit 1
+            ;;
+        esac
         docker run --rm \
           -v "$(Build.SourcesDirectory):/workspace" \
           -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
@@ -58,6 +68,16 @@ stages:
       vmImage: 'ubuntu-latest'
     steps:
     - script: |
+        # Fail fast (clearer than a downstream 401) when the key is empty or
+        # still the unexpanded macro literal — i.e. the SECUREOBS_API_KEY secret
+        # variable, or the variable group that holds it, is not linked to this
+        # pipeline. Azure DevOps does not auto-expose secret variables to scripts.
+        case "${SECUREOBS_API_KEY:-}" in
+          ''|*SECUREOBS_API_KEY*)
+            echo "##vso[task.logissue type=error]SECUREOBS_API_KEY is not set on this pipeline. Add it as a secret variable, or link the variable group that holds it (Project settings -> Pipelines -> Library), then re-run. See docs/quickstart-azure-devops.md."
+            exit 1
+            ;;
+        esac
         docker run --rm \
           -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
           -e SYSTEM_ACCESSTOKEN="$SYSTEM_ACCESSTOKEN" \
@@ -97,6 +117,16 @@ stages:
       vmImage: 'ubuntu-latest'
     steps:
     - script: |
+        # Fail fast (clearer than a downstream 401) when the key is empty or
+        # still the unexpanded macro literal — i.e. the SECUREOBS_API_KEY secret
+        # variable, or the variable group that holds it, is not linked to this
+        # pipeline. Azure DevOps does not auto-expose secret variables to scripts.
+        case "${SECUREOBS_API_KEY:-}" in
+          ''|*SECUREOBS_API_KEY*)
+            echo "##vso[task.logissue type=error]SECUREOBS_API_KEY is not set on this pipeline. Add it as a secret variable, or link the variable group that holds it (Project settings -> Pipelines -> Library), then re-run. See docs/quickstart-azure-devops.md."
+            exit 1
+            ;;
+        esac
         docker run --rm \
           -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
           "secureobs/scanner:$SECUREOBS_IMAGE_TAG" \
