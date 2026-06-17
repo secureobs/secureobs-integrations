@@ -15,6 +15,18 @@ ARG REQUESTS_VERSION=2.32.3
 ARG BANDIT_VERSION=1.7.10
 ARG CHECKOV_VERSION=3.2.343
 
+# requests' own dependency chain, pinned explicitly. The Dockerfile pins every
+# tool but historically let pip resolve these transitively, so a rebuild could
+# silently pull a newer urllib3/certifi — the HTTP + TLS stack api_client uses
+# to authenticate to the SecureObs API. Pin them like everything else so the
+# auth path is reproducible. Versions are the set pip resolves for
+# requests ${REQUESTS_VERSION} on python 3.12 (also compatible with the
+# bandit/checkov/semgrep trees installed in the same step).
+ARG URLLIB3_VERSION=2.7.0
+ARG CERTIFI_VERSION=2026.5.20
+ARG IDNA_VERSION=3.18
+ARG CHARSET_NORMALIZER_VERSION=3.4.7
+
 # Pinned npm package versions. --ignore-scripts is set below so lifecycle
 # scripts (preinstall/postinstall) cannot execute arbitrary code from the
 # transitive dependency tree at image build time.
@@ -43,9 +55,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         wget \
     && pip install --no-cache-dir --only-binary=:all: \
         "bandit==${BANDIT_VERSION}" \
+        "certifi==${CERTIFI_VERSION}" \
+        "charset-normalizer==${CHARSET_NORMALIZER_VERSION}" \
         "checkov==${CHECKOV_VERSION}" \
+        "idna==${IDNA_VERSION}" \
         "requests==${REQUESTS_VERSION}" \
         "semgrep==${SEMGREP_VERSION}" \
+        "urllib3==${URLLIB3_VERSION}" \
     && wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
     && echo "${GITLEAKS_SHA256}  gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | sha256sum -c - \
     && tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks \
