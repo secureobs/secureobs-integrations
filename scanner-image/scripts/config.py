@@ -19,6 +19,13 @@ def setup_logging() -> None:
 
 def require_env(name: str) -> str:
     value = os.environ.get(name)
+    if value is not None:
+        # CI secret stores routinely append a trailing newline or space when a
+        # key is pasted or piped in. An X-Api-Key carrying stray whitespace is
+        # sent verbatim and rejected by the API as a 401 — or, for a newline,
+        # rejected outright by urllib3's header validation. Strip so a correct
+        # key that merely picked up surrounding whitespace still authenticates.
+        value = value.strip()
     if not value:
         log.error("Required environment variable %s is not set.", name)
         sys.exit(1)

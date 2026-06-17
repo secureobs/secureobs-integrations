@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.10 — 2026-06-17
+
+**Fix (base image):** Revert the scanner base image from `python:3.14-slim` back to the supported `python:3.12-slim`. The bundled, version-pinned security tools are validated against 3.12; the automatic bump to bleeding-edge 3.14 was unvetted. Dependabot is now pinned to Python 3.12.x for this image so the jump cannot recur without a manual review.
+
+**Fix (auth robustness):** `SECUREOBS_API_KEY` is now whitespace-stripped before use. A key that picked up a trailing newline or space from a CI secret store was sent verbatim in the `X-Api-Key` header and rejected as a `401 Authentication failed` (a newline was rejected even earlier by urllib3's header validation). A correct key with stray surrounding whitespace now authenticates.
+
 ## v1.2.7 — 2026-05-10
 
 **Feature (CI automation):** Changelog is now auto-generated from this file on every scanner build — `scripts/generate-changelog.js` parses CHANGELOG.md and writes `changelog.data.ts`. EF Core migrations run automatically in CI via a migration bundle built and uploaded as an artifact before the API deploys.
