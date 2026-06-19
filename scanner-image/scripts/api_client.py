@@ -63,6 +63,47 @@ def get_blocking(api_url: str, api_key: str, pipeline_run_id: str) -> bool:
     return bool(resp.json())
 
 
+def post_infrastructure_analysis(
+    api_url: str, api_key: str, payload: dict
+) -> tuple[bool, Any]:
+    """POST an infrastructure analysis payload to the SecureObs API.
+
+    Unlike ``post_findings``, a failure here does NOT call ``sys.exit`` — the
+    calling scanner must continue regardless.  The payload is expected to be a
+    dict produced by ``infrastructure.terraform_plan``.
+
+    Returns
+    -------
+    (True, response_dict)  on success.
+    (False, error_string)  on any failure.
+    """
+    url = f"{api_url}/infrastructure-analyses/terraform-plan"
+    log.debug("POST %s", url)
+    s = _session(api_key)
+    try:
+        resp = s.post(url, json=payload, timeout=120, verify=True)
+    except requests.RequestException as exc:
+        msg = f"Network error posting infrastructure analysis: {exc}"
+        log.error(msg)
+        return False, msg
+
+    if resp.status_code == 401:
+        log.error(_AUTH_FAILED_MSG)
+        return False, _AUTH_FAILED_MSG
+
+    if not resp.ok:
+        msg = f"Infrastructure-analysis API returned {resp.status_code}: {resp.text[:200]}"
+        log.error(msg)
+        return False, msg
+
+    try:
+        body = resp.json() if resp.content else {}
+    except ValueError:
+        body = {}
+
+    return True, body
+
+
 def get_active_scanners(
     api_url: str, api_key: str, project_id: str
 ) -> list[dict[str, Any]] | None:

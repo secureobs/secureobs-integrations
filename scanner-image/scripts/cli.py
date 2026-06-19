@@ -10,6 +10,7 @@ import api_client
 import build_gate as gate_module
 from scanners.registry import DEFAULT_KEYS, REGISTRY
 from pr_comments import azuredevops, github
+from infrastructure import terraform_plan as iac_plan
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +29,45 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--project-id", required=True, help="SecureObs project ID")
     p.add_argument("--tenant-id", required=True, help="SecureObs tenant ID")
     p.add_argument("--pipeline-run-id", required=True, help="Unique pipeline run identifier")
+
+
+def _add_iac_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--terraform-plan-json",
+        default=None,
+        metavar="RELATIVE_PATH",
+        help=(
+            "Path to a pre-generated Terraform plan JSON file, relative to "
+            "/workspace. When supplied, SecureObs sanitizes the plan locally "
+            "and uploads only an allowlisted infrastructure topology — the raw "
+            "plan is never transmitted. Omit to skip infrastructure analysis."
+        ),
+    )
+    p.add_argument(
+        "--source-revision",
+        default=None,
+        metavar="COMMIT_SHA",
+        help="VCS commit SHA or ref for the plan source (e.g. $GITHUB_SHA).",
+    )
+    p.add_argument(
+        "--terraform-root-id",
+        default=None,
+        metavar="STABLE_ID",
+        help=(
+            "Stable configuration ID for the Terraform root being analysed. "
+            "Used to distinguish multiple roots in a monorepo."
+        ),
+    )
+    p.add_argument(
+        "--require-infrastructure-analysis",
+        action="store_true",
+        default=False,
+        help=(
+            "Exit with a non-zero code if infrastructure analysis fails or is "
+            "skipped (no --terraform-plan-json supplied). Ordinary scanner "
+            "failures are unaffected by this flag."
+        ),
+    )
 
 
 def _resolve_active_scanners(
@@ -94,6 +134,11 @@ def cmd_scan(args: argparse.Namespace) -> None:
     api_url = config.get_api_url()
     api_key = config.require_env("SECUREOBS_API_KEY")
 
+    require_iac = getattr(args, "require_infrastructure_analysis", False)
+    plan_path = getattr(args, "terraform_plan_json", None)
+    source_revision = getattr(args, "source_revision", None)
+    terraform_root_id = getattr(args, "terraform_root_id", None)
+
     active = _resolve_active_scanners(api_url, api_key, args.project_id)
 
     if not active:
@@ -101,84 +146,122 @@ def cmd_scan(args: argparse.Namespace) -> None:
             "No scanners are enabled for this project. Enable at least one "
             "in the SecureObs dashboard, then re-run the pipeline."
         )
-        return
+        # Do NOT return here — infrastructure analysis must still run when
+        # --terraform-plan-json is provided even if no ordinary scanners are enabled.
+    else:
+        enabled_keys = [str(entry.get("key", "?")) for entry in active]
+        log.info("Active scanners for this run: %s", ", ".join(enabled_keys))
 
-    enabled_keys = [str(entry.get("key", "?")) for entry in active]
-    log.info("Active scanners for this run: %s", ", ".join(enabled_keys))
+        summary_rows: list[_ScanRow] = []
 
-    summary_rows: list[_ScanRow] = []
+        for entry in active:
+            key = entry.get("key")
+            cfg = entry.get("config") or None
 
-    for entry in active:
-        key = entry.get("key")
-        cfg = entry.get("config") or None
+            if not key or not isinstance(key, str):
+                log.warning("Skipping malformed active-scanner entry: %r", entry)
+                continue
 
-        if not key or not isinstance(key, str):
-            log.warning("Skipping malformed active-scanner entry: %r", entry)
-            continue
-
-        driver = REGISTRY.get(key)
-        if driver is None:
-            log.warning(
-                "Unknown scanner key '%s' returned by the API; skipping. "
-                "(This usually means the SecureObs catalog is ahead of this "
-                "image — pin to a newer tag once the driver ships.)",
-                key,
-            )
-            summary_rows.append(_ScanRow(key=key, status="unknown"))
-            continue
-
-        try:
-            result = driver.runner(
-                "/workspace", args.project_id, args.pipeline_run_id, cfg
-            )
-        except Exception:
-            # Defensive: a driver crash must never take down the whole scan.
-            # Auth/network failures inside the bulk-add path still abort via
-            # ``post_findings`` (sys.exit), which is the desired blast radius.
-            log.exception(
-                "Scanner '%s' raised an unexpected error; continuing with the "
-                "remaining scanners.",
-                key,
-            )
-            summary_rows.append(_ScanRow(key=key, status="error"))
-            continue
-
-        if result.skipped:
-            reason = result.skip_reason or "(no reason given)"
-            if result.exit_code is not None:
-                log.error(
-                    "%s skipped due to non-zero exit (code %d): %s. stderr: %s",
+            driver = REGISTRY.get(key)
+            if driver is None:
+                log.warning(
+                    "Unknown scanner key '%s' returned by the API; skipping. "
+                    "(This usually means the SecureObs catalog is ahead of this "
+                    "image — pin to a newer tag once the driver ships.)",
                     key,
-                    result.exit_code,
-                    reason,
-                    result.stderr_tail or "(none)",
                 )
-            else:
-                log.info("%s skipped: %s", key, reason)
-            summary_rows.append(_ScanRow(key=key, status="skipped", skip_reason=reason))
-            continue
+                summary_rows.append(_ScanRow(key=key, status="unknown"))
+                continue
 
-        if not result.findings:
-            log.info("%s: no findings.", key)
-            summary_rows.append(_ScanRow(key=key, status="ok"))
-            continue
+            try:
+                result = driver.runner(
+                    "/workspace", args.project_id, args.pipeline_run_id, cfg
+                )
+            except Exception:
+                log.exception(
+                    "Scanner '%s' raised an unexpected error; continuing with the "
+                    "remaining scanners.",
+                    key,
+                )
+                summary_rows.append(_ScanRow(key=key, status="error"))
+                continue
 
-        data = api_client.post_findings(api_url, api_key, driver.bulk_endpoint, result.findings)
-        ingested = data.get("ingested", len(result.findings))
-        deduped = data.get("deduplicated", 0)
-        new_count = ingested - deduped
-        log.info("%s: %d finding(s) ingested (%d new after dedup).", key, ingested, deduped)
-        summary_rows.append(
-            _ScanRow(
-                key=key,
-                status="ok",
-                findings=ingested,
-                ingested=ingested,
-                new_after_dedup=new_count,
+            if result.skipped:
+                reason = result.skip_reason or "(no reason given)"
+                if result.exit_code is not None:
+                    log.error(
+                        "%s skipped due to non-zero exit (code %d): %s. stderr: %s",
+                        key,
+                        result.exit_code,
+                        reason,
+                        result.stderr_tail or "(none)",
+                    )
+                else:
+                    log.info("%s skipped: %s", key, reason)
+                summary_rows.append(_ScanRow(key=key, status="skipped", skip_reason=reason))
+                continue
+
+            if not result.findings:
+                log.info("%s: no findings.", key)
+                summary_rows.append(_ScanRow(key=key, status="ok"))
+                continue
+
+            data = api_client.post_findings(api_url, api_key, driver.bulk_endpoint, result.findings)
+            ingested = data.get("ingested", len(result.findings))
+            deduped = data.get("deduplicated", 0)
+            new_count = ingested - deduped
+            log.info("%s: %d finding(s) ingested (%d new after dedup).", key, ingested, deduped)
+            summary_rows.append(
+                _ScanRow(
+                    key=key,
+                    status="ok",
+                    findings=ingested,
+                    ingested=ingested,
+                    new_after_dedup=new_count,
+                )
             )
-        )
 
-    _print_scan_summary(summary_rows)
+        _print_scan_summary(summary_rows)
+
+    # ── Infrastructure analysis — runs independently of ordinary scanners ──
+    if plan_path:
+        log.info("Running infrastructure analysis on plan: %s", plan_path)
+        iac_result = iac_plan.run(
+            workspace="/workspace",
+            project_id=args.project_id,
+            pipeline_run_id=args.pipeline_run_id,
+            plan_json_relative_path=plan_path,
+            source_revision=source_revision,
+            terraform_root_id=terraform_root_id,
+            api_url=api_url,
+            api_key=api_key,
+            require_submission=require_iac,
+        )
+        if iac_result.success:
+            log.info(
+                "Infrastructure analysis: %d resource(s), %d edge(s), "
+                "%d potential path(s), %d unsupported resource(s)",
+                iac_result.resource_count,
+                iac_result.edge_count,
+                iac_result.path_count,
+                iac_result.unsupported_count,
+            )
+        else:
+            log.error(
+                "Infrastructure analysis FAILED: %s",
+                iac_result.error or "unknown error",
+            )
+            if require_iac:
+                sys.exit(2)
+    elif require_iac:
+        log.error(
+            "Infrastructure analysis required (--require-infrastructure-analysis) "
+            "but no --terraform-plan-json was supplied."
+        )
+        sys.exit(2)
+    else:
+        log.info("Infrastructure analysis skipped: no --terraform-plan-json supplied.")
+
     log.info("Scan complete.")
 
 
@@ -215,6 +298,7 @@ def main() -> None:
         help="Run the scanners enabled for this project in the SecureObs dashboard, then post findings.",
     )
     _add_common_args(scan_p)
+    _add_iac_args(scan_p)
 
     gate_p = sub.add_parser("gate", help="Check for blocking findings. Exits 3 if blocked.")
     _add_common_args(gate_p)
