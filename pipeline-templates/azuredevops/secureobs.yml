@@ -45,7 +45,7 @@ stages:
         esac
         docker run --rm \
           -v "$(Build.SourcesDirectory):/workspace" \
-          -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
+          -e SECUREOBS_API_KEY \
           "secureobs/scanner:$SECUREOBS_IMAGE_TAG" \
           scan \
           --project-id "$SECUREOBS_PROJECT_ID" \
@@ -79,7 +79,7 @@ stages:
             ;;
         esac
         docker run --rm \
-          -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
+          -e SECUREOBS_API_KEY \
           -e SYSTEM_ACCESSTOKEN="$SYSTEM_ACCESSTOKEN" \
           -e SYSTEM_PULLREQUEST_PULLREQUESTID="$SYSTEM_PULLREQUEST_PULLREQUESTID" \
           -e BUILD_REPOSITORY_ID="$BUILD_REPOSITORY_ID" \
@@ -128,7 +128,7 @@ stages:
             ;;
         esac
         docker run --rm \
-          -e SECUREOBS_API_KEY="$SECUREOBS_API_KEY" \
+          -e SECUREOBS_API_KEY \
           "secureobs/scanner:$SECUREOBS_IMAGE_TAG" \
           gate \
           --project-id "$SECUREOBS_PROJECT_ID" \
