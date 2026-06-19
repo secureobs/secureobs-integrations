@@ -10,6 +10,7 @@ VERSION="$(cat "$SCRIPT_DIR/VERSION" | tr -d '[:space:]')"
 IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
 CODE_TEMPLATES="$REPO_ROOT/SecureObs.Dashboard/src/app/core/utils/code-templates.ts"
+SELF_SCAN_WORKFLOW="$REPO_ROOT/.github/workflows/self-scan.yml"
 
 # Portable sed -i (macOS needs a backup extension, Linux doesn't care)
 sedi() { sed -i.bak "$@" && rm -f "${@: -1}.bak"; }
@@ -23,6 +24,16 @@ if [[ -f "$CODE_TEMPLATES" ]]; then
     echo "  ✔ code-templates.ts  →  SCANNER_IMAGE_TAG=v${MAJOR}  INTEGRATIONS_TAG=v${VERSION}"
 else
     echo "  ⚠ code-templates.ts not found — skipping"
+fi
+
+# ── self-scan.yml ────────────────────────────────────────────────────────────
+# Dogfood the exact release that was just built. The workflow resolves this tag
+# to a digest and verifies the digest with Cosign before running it.
+if [[ -f "$SELF_SCAN_WORKFLOW" ]]; then
+    sedi "s#^  SCANNER_IMAGE: secureobs/scanner:v[^[:space:]]*#  SCANNER_IMAGE: secureobs/scanner:v${VERSION}#" "$SELF_SCAN_WORKFLOW"
+    echo "  ✔ self-scan.yml      →  SCANNER_IMAGE=v${VERSION}"
+else
+    echo "  ⚠ self-scan.yml not found — skipping"
 fi
 
 # features.component.ts is intentionally excluded: its YAML examples are now
