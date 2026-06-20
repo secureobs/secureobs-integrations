@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.2.11 — 2026-06-19
+## v1.2.12 — 2026-06-19
 
 **Feature (IaC attack-path analysis):** `scan` now accepts four new flags for infrastructure analysis. Pass `--terraform-plan-json <relative-path>` to supply a pre-generated Terraform plan JSON; the scanner sanitizes it locally and uploads only the allowlisted resource topology — the raw plan is never transmitted. `--source-revision <sha>` records the VCS commit the plan was generated from. `--terraform-root-id <id>` distinguishes multiple Terraform roots in a monorepo. `--require-infrastructure-analysis` causes a non-zero exit when the plan is absent or the upload fails. Ordinary scanner failures are not affected by this flag.
 
