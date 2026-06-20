@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.11 — 2026-06-19
+
+**Feature (IaC attack-path analysis):** `scan` now accepts four new flags for infrastructure analysis. Pass `--terraform-plan-json <relative-path>` to supply a pre-generated Terraform plan JSON; the scanner sanitizes it locally and uploads only the allowlisted resource topology — the raw plan is never transmitted. `--source-revision <sha>` records the VCS commit the plan was generated from. `--terraform-root-id <id>` distinguishes multiple Terraform roots in a monorepo. `--require-infrastructure-analysis` causes a non-zero exit when the plan is absent or the upload fails. Ordinary scanner failures are not affected by this flag.
+
 ## v1.2.10 — 2026-06-17
 
 **Fix (base image):** Revert the scanner base image from `python:3.14-slim` back to the supported `python:3.12-slim`. The bundled, version-pinned security tools are validated against 3.12; the automatic bump to bleeding-edge 3.14 was unvetted. Dependabot is now pinned to Python 3.12.x for this image so the jump cannot recur without a manual review.
