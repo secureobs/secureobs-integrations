@@ -354,6 +354,15 @@ def generate_plan_json(cfg: RunnerConfig, binary: str, clone_dir: str, work_dir:
     for var in ("ARM_CLIENT_SECRET", "ARM_CLIENT_ID", "ARM_TENANT_ID", "ARM_SUBSCRIPTION_ID"):
         env.pop(var, None)
 
+    # The committed .terraform.lock.hcl often only carries hashes for the developer's
+    # platform, so init would fail on this linux_amd64 container with "doesn't match any
+    # of the checksums". Record the linux provider checksums first (preserving the locked
+    # versions). Best-effort: if it fails (e.g. no lock file yet), init still proceeds.
+    try:
+        _run_terraform(binary, root, ["providers", "lock", "-platform=linux_amd64"], env)
+    except RuntimeError as exc:
+        log.info("providers lock skipped: %s", str(exc)[:200])
+
     _run_terraform(binary, root, ["init", "-backend=false", "-input=false", "-no-color"], env)
 
     plan_args = [
