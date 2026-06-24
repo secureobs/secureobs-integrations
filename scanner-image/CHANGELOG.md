@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+**Feature (two IaC fidelity modes):** Terraform analysis now always runs Checkov. Static mode scans the selected Terraform root and then builds a credential-free HCL topology. Plan mode scans the Terraform plan with source enrichment and Checkov deep analysis before uploading the sanitized plan topology. Generated GitHub workflows use customer-owned OIDC and generated Azure DevOps pipelines use customer-owned service connections; SecureObs never receives cloud credentials. Generated IaC workflows use `--iac-only` so they do not repeat unrelated whole-repository SAST/SCA scans for every Terraform root. Checkov raw payloads are reduced to safe rule/resource/location metadata and never include source code blocks or evaluated values.
+
+**Fix (static topology correctness):** unresolved expressions are marked unknown instead of being interpreted as configured values, `count = 0` / empty `for_each` resources are omitted, references inside local modules retain their module address, repeated local-module instances are preserved, and `.tfvars.json` auto-loading is supported.
+
+**Hardening (IaC onboarding and execution):** plan workflows now keep the committed dependency lock file strictly read-only, map customer-owned `TF_VAR_*` secrets by variable name only, and use the AzureRM provider's Azure DevOps workload-identity service-connection identifier. Managed static runs reject unpinned runner images, unsafe refs/paths, repository escapes, oversized parse workloads, and Checkov executions over 15 minutes. Checkov fingerprints now include the Terraform resource address so findings for expanded instances are not collapsed.
+
+**Fix (large finding sets):** scanner finding ingestion is split by both item count and serialized request size, preventing large Checkov result sets from exceeding the API's 5,000-row / 8 MiB request limits.
+
+## v1.3.0 — 2026-06-24
+
+**Feature (credential-free IaC analysis):** `scan` now accepts `--terraform-root <relative-dir>` for **static** infrastructure analysis. The scanner parses the Terraform HCL directly with `python-hcl2` — no `terraform plan`, no `terraform init`, and **no cloud credentials** — resolving variable defaults / `.tfvars` and following local modules, then uploads only the allowlisted topology. This removes the Azure/AWS/GCP credential requirement that `terraform plan` imposes (the `azurerm` provider acquires a real token even for a refresh-free plan). `--terraform-var-file <relative-path>` (repeatable) supplies `.tfvars` for variable resolution. The higher-fidelity `--terraform-plan-json` path remains for users who already produce a plan in their own pipeline.
+
 ## v1.2.12 — 2026-06-19
 
 **Feature (IaC attack-path analysis):** `scan` now accepts four new flags for infrastructure analysis. Pass `--terraform-plan-json <relative-path>` to supply a pre-generated Terraform plan JSON; the scanner sanitizes it locally and uploads only the allowlisted resource topology — the raw plan is never transmitted. `--source-revision <sha>` records the VCS commit the plan was generated from. `--terraform-root-id <id>` distinguishes multiple Terraform roots in a monorepo. `--require-infrastructure-analysis` causes a non-zero exit when the plan is absent or the upload fails. Ordinary scanner failures are not affected by this flag.

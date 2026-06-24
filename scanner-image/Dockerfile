@@ -14,6 +14,8 @@ ARG SEMGREP_VERSION=1.92.0
 ARG REQUESTS_VERSION=2.32.3
 ARG BANDIT_VERSION=1.7.10
 ARG CHECKOV_VERSION=3.2.343
+# Pure-Python HCL2 parser for credential-free static Terraform topology analysis.
+ARG PYTHON_HCL2_VERSION=4.3.5
 
 # requests' own dependency chain, pinned explicitly. The Dockerfile pins every
 # tool but historically let pip resolve these transitively, so a rebuild could
@@ -59,6 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         "charset-normalizer==${CHARSET_NORMALIZER_VERSION}" \
         "checkov==${CHECKOV_VERSION}" \
         "idna==${IDNA_VERSION}" \
+        "python-hcl2==${PYTHON_HCL2_VERSION}" \
         "requests==${REQUESTS_VERSION}" \
         "semgrep==${SEMGREP_VERSION}" \
         "urllib3==${URLLIB3_VERSION}" \

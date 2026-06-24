@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import os
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
@@ -11,6 +12,7 @@ import build_gate as gate_module
 from scanners.registry import DEFAULT_KEYS, REGISTRY
 from pr_comments import azuredevops, github
 from infrastructure import terraform_plan as iac_plan
+from infrastructure import terraform_config as iac_config
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +25,30 @@ class _ScanRow:
     ingested: int = 0
     new_after_dedup: int = 0
     skip_reason: Optional[str] = None
+
+
+_WORKSPACE = "/workspace"
+
+
+def _resolve_workspace_dir(relative_dir: Optional[str]) -> str:
+    """Resolve a workspace-relative directory, refusing paths that escape /workspace."""
+    rel = (relative_dir or "").strip().strip("/")
+    base = os.path.realpath(_WORKSPACE)
+    candidate = os.path.realpath(os.path.join(base, rel))
+    if candidate != base and not candidate.startswith(base + os.sep):
+        raise SystemExit(f"--terraform-root resolves outside the workspace: {relative_dir!r}")
+    return candidate
+
+
+def _resolve_workspace_file(relative_path: Optional[str]) -> str:
+    """Resolve a workspace-relative file, refusing paths that escape /workspace."""
+    rel = (relative_path or "").strip().strip("/")
+    base = os.path.realpath(_WORKSPACE)
+    candidate = os.path.realpath(os.path.join(base, rel))
+    if not candidate.startswith(base + os.sep):
+        raise SystemExit(
+            f"--terraform-plan-json resolves outside the workspace: {relative_path!r}")
+    return candidate
 
 
 def _add_common_args(p: argparse.ArgumentParser) -> None:
@@ -40,7 +66,31 @@ def _add_iac_args(p: argparse.ArgumentParser) -> None:
             "Path to a pre-generated Terraform plan JSON file, relative to "
             "/workspace. When supplied, SecureObs sanitizes the plan locally "
             "and uploads only an allowlisted infrastructure topology — the raw "
-            "plan is never transmitted. Omit to skip infrastructure analysis."
+            "plan is never transmitted. Use --terraform-root instead for "
+            "credential-free static analysis."
+        ),
+    )
+    p.add_argument(
+        "--terraform-root",
+        default=None,
+        metavar="RELATIVE_DIR",
+        help=(
+            "Directory of a Terraform root, relative to /workspace, for "
+            "CREDENTIAL-FREE static analysis: SecureObs parses the HCL directly "
+            "(no terraform plan, no cloud credentials) and uploads only the "
+            "allowlisted topology. Azure resources receive typed attack-path "
+            "analysis; other providers still receive Checkov findings and generic nodes."
+        ),
+    )
+    p.add_argument(
+        "--terraform-var-file",
+        action="append",
+        default=[],
+        dest="terraform_var_files",
+        metavar="RELATIVE_PATH",
+        help=(
+            "Root-relative .tfvars file used to resolve variables during static "
+            "analysis (--terraform-root). Repeatable. Ignored for --terraform-plan-json."
         ),
     )
     p.add_argument(
@@ -64,8 +114,17 @@ def _add_iac_args(p: argparse.ArgumentParser) -> None:
         default=False,
         help=(
             "Exit with a non-zero code if infrastructure analysis fails or is "
-            "skipped (no --terraform-plan-json supplied). Ordinary scanner "
+            "skipped (neither --terraform-plan-json nor --terraform-root supplied). Ordinary scanner "
             "failures are unaffected by this flag."
+        ),
+    )
+    p.add_argument(
+        "--iac-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Run only the Terraform IaC policy/topology path. Checkov is always included; "
+            "general SAST/SCA scanners are skipped to avoid duplicate whole-repository scans."
         ),
     )
 
@@ -136,10 +195,31 @@ def cmd_scan(args: argparse.Namespace) -> None:
 
     require_iac = getattr(args, "require_infrastructure_analysis", False)
     plan_path = getattr(args, "terraform_plan_json", None)
+    terraform_root = getattr(args, "terraform_root", None)
+    terraform_var_files = getattr(args, "terraform_var_files", None) or []
     source_revision = getattr(args, "source_revision", None)
     terraform_root_id = getattr(args, "terraform_root_id", None)
+    iac_only = getattr(args, "iac_only", False)
+    resolved_terraform_root = (
+        _resolve_workspace_dir(terraform_root)
+        if terraform_root is not None
+        else None
+    )
+    resolved_plan_path = (
+        _resolve_workspace_file(plan_path)
+        if plan_path
+        else None
+    )
 
     active = _resolve_active_scanners(api_url, api_key, args.project_id)
+    if iac_only:
+        active = [entry for entry in active if entry.get("key") == "checkov"]
+    # Checkov is part of the IaC analysis contract, not an optional side scan. It
+    # runs exactly once even when the project scanner catalog has it disabled.
+    if (plan_path or terraform_root is not None) and not any(
+        entry.get("key") == "checkov" for entry in active
+    ):
+        active.append({"key": "checkov", "config": None})
 
     if not active:
         log.warning(
@@ -153,6 +233,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
         log.info("Active scanners for this run: %s", ", ".join(enabled_keys))
 
         summary_rows: list[_ScanRow] = []
+        iac_checkov_failed = False
 
         for entry in active:
             key = entry.get("key")
@@ -174,8 +255,14 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 continue
 
             try:
+                if key == "checkov" and (plan_path or resolved_terraform_root is not None):
+                    cfg = dict(cfg or {})
+                    if resolved_terraform_root is not None:
+                        cfg["terraform_root"] = resolved_terraform_root
+                    if resolved_plan_path is not None:
+                        cfg["terraform_plan_json"] = resolved_plan_path
                 result = driver.runner(
-                    "/workspace", args.project_id, args.pipeline_run_id, cfg
+                    _WORKSPACE, args.project_id, args.pipeline_run_id, cfg
                 )
             except Exception:
                 log.exception(
@@ -184,6 +271,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
                     key,
                 )
                 summary_rows.append(_ScanRow(key=key, status="error"))
+                if key == "checkov" and (plan_path or terraform_root is not None):
+                    iac_checkov_failed = True
                 continue
 
             if result.skipped:
@@ -199,6 +288,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 else:
                     log.info("%s skipped: %s", key, reason)
                 summary_rows.append(_ScanRow(key=key, status="skipped", skip_reason=reason))
+                if key == "checkov" and (plan_path or terraform_root is not None):
+                    iac_checkov_failed = True
                 continue
 
             if not result.findings:
@@ -223,11 +314,20 @@ def cmd_scan(args: argparse.Namespace) -> None:
 
         _print_scan_summary(summary_rows)
 
+        if iac_checkov_failed and require_iac:
+            log.error(
+                "Infrastructure analysis requires Checkov, but the Checkov Terraform scan failed.")
+            sys.exit(2)
+
     # ── Infrastructure analysis — runs independently of ordinary scanners ──
+    # Two sources of the topology: a pre-generated plan JSON (--terraform-plan-json,
+    # highest fidelity, needs the user's CI to run terraform plan with cloud creds) or
+    # CREDENTIAL-FREE static HCL analysis (--terraform-root, no plan, no creds).
+    iac_result = None
     if plan_path:
         log.info("Running infrastructure analysis on plan: %s", plan_path)
         iac_result = iac_plan.run(
-            workspace="/workspace",
+            workspace=_WORKSPACE,
             project_id=args.project_id,
             pipeline_run_id=args.pipeline_run_id,
             plan_json_relative_path=plan_path,
@@ -237,6 +337,23 @@ def cmd_scan(args: argparse.Namespace) -> None:
             api_key=api_key,
             require_submission=require_iac,
         )
+    elif terraform_root is not None:
+        root_dir = resolved_terraform_root or _resolve_workspace_dir(terraform_root)
+        log.info("Running credential-free static infrastructure analysis on: %s",
+                 terraform_root or "<workspace root>")
+        iac_result = iac_config.run(
+            root_dir=root_dir,
+            project_id=args.project_id,
+            pipeline_run_id=args.pipeline_run_id,
+            source_revision=source_revision,
+            terraform_root_id=terraform_root_id,
+            var_files=terraform_var_files,
+            api_url=api_url,
+            api_key=api_key,
+            require_submission=require_iac,
+        )
+
+    if iac_result is not None:
         if iac_result.success:
             log.info(
                 "Infrastructure analysis: %d resource(s), %d edge(s), "
@@ -256,11 +373,13 @@ def cmd_scan(args: argparse.Namespace) -> None:
     elif require_iac:
         log.error(
             "Infrastructure analysis required (--require-infrastructure-analysis) "
-            "but no --terraform-plan-json was supplied."
+            "but neither --terraform-plan-json nor --terraform-root was supplied."
         )
         sys.exit(2)
     else:
-        log.info("Infrastructure analysis skipped: no --terraform-plan-json supplied.")
+        log.info(
+            "Infrastructure analysis skipped: neither --terraform-plan-json nor "
+            "--terraform-root was supplied.")
 
     log.info("Scan complete.")
 

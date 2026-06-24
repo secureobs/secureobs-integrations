@@ -1,4 +1,5 @@
 import logging
+import json
 import os
 import sys
 from typing import Any
@@ -11,6 +12,8 @@ log = logging.getLogger(__name__)
 
 SCANNER_IMAGE_VERSION = os.environ.get("SECUREOBS_IMAGE_VERSION", "unknown")
 _AUTH_FAILED_MSG = "Authentication failed — check SECUREOBS_API_KEY."
+_MAX_FINDINGS_PER_BATCH = 1_000
+_MAX_FINDINGS_BATCH_BYTES = 6 * 1024 * 1024
 
 _RETRY = Retry(
     total=3,
@@ -39,14 +42,46 @@ def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
         if isinstance(item, dict) else item
         for item in payload
     ]
-    resp = s.post(url, json=enriched, timeout=120, verify=True)
-    if resp.status_code == 401:
-        log.error(_AUTH_FAILED_MSG)
-        sys.exit(1)
-    if not resp.ok:
-        log.error("API returned %s: %s", resp.status_code, resp.text)
-        sys.exit(2)
-    return resp.json() if resp.content else {}
+    ingested = 0
+    deduplicated = 0
+    for batch in _finding_batches(enriched):
+        resp = s.post(url, json=batch, timeout=120, verify=True)
+        if resp.status_code == 401:
+            log.error(_AUTH_FAILED_MSG)
+            sys.exit(1)
+        if not resp.ok:
+            log.error("API returned %s: %s", resp.status_code, resp.text)
+            sys.exit(2)
+        try:
+            body = resp.json() if resp.content else {}
+        except ValueError:
+            body = {}
+        ingested += int(body.get("ingested", len(batch)))
+        deduplicated += int(body.get("deduplicated", 0))
+    return {"ingested": ingested, "deduplicated": deduplicated}
+
+
+def _finding_batches(items: list) -> list[list]:
+    """Bound finding requests by both API item count and serialized payload size."""
+    batches: list[list] = []
+    current: list = []
+    current_bytes = 2  # JSON array brackets
+    for item in items:
+        item_bytes = len(json.dumps(item, separators=(",", ":")).encode("utf-8"))
+        separator_bytes = 1 if current else 0
+        if current and (
+            len(current) >= _MAX_FINDINGS_PER_BATCH or
+            current_bytes + separator_bytes + item_bytes > _MAX_FINDINGS_BATCH_BYTES
+        ):
+            batches.append(current)
+            current = []
+            current_bytes = 2
+            separator_bytes = 0
+        current.append(item)
+        current_bytes += separator_bytes + item_bytes
+    if current:
+        batches.append(current)
+    return batches
 
 
 def get_blocking(api_url: str, api_key: str, pipeline_run_id: str) -> bool:
