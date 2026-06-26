@@ -80,17 +80,28 @@ _MAX_KEY_LEN = 128
 # ---------------------------------------------------------------------------
 
 _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
+    # Resource group (container header for the topology hierarchy)
+    "azurerm_resource_group": ["name", "location"],
     # Network
-    "azurerm_virtual_network": ["name", "location", "address_space", "dns_servers"],
+    "azurerm_virtual_network": [
+        "name",
+        "location",
+        "resource_group_name",
+        "address_space",
+        "dns_servers",
+    ],
     "azurerm_subnet": [
         "name",
+        "resource_group_name",
         "address_prefixes",
         "virtual_network_name",
         "service_endpoints",
     ],
-    "azurerm_network_security_group": ["name", "location"],
+    "azurerm_network_security_group": ["name", "location", "resource_group_name"],
     "azurerm_network_security_rule": [
         "name",
+        "resource_group_name",
+        "network_security_group_name",
         "direction",
         "access",
         "protocol",
@@ -108,15 +119,27 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
         "subnet_id",
         "network_security_group_id",
     ],
-    "azurerm_network_interface": ["name", "location", "ip_configuration"],
+    "azurerm_network_interface": [
+        "name",
+        "location",
+        "resource_group_name",
+        "ip_configuration",
+    ],
     "azurerm_network_interface_security_group_association": [
         "network_interface_id",
         "network_security_group_id",
     ],
-    "azurerm_public_ip": ["name", "location", "allocation_method", "sku"],
+    "azurerm_public_ip": [
+        "name",
+        "location",
+        "resource_group_name",
+        "allocation_method",
+        "sku",
+    ],
     "azurerm_private_endpoint": [
         "name",
         "location",
+        "resource_group_name",
         "subnet_id",
         "private_service_connection",
     ],
@@ -124,6 +147,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_linux_virtual_machine": [
         "name",
         "location",
+        "resource_group_name",
         "size",
         "identity",
         "network_interface_ids",
@@ -133,6 +157,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_windows_virtual_machine": [
         "name",
         "location",
+        "resource_group_name",
         "size",
         "identity",
         "network_interface_ids",
@@ -141,6 +166,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_linux_web_app": [
         "name",
         "location",
+        "resource_group_name",
         "identity",
         "site_config",
         "public_network_access_enabled",
@@ -149,6 +175,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_windows_web_app": [
         "name",
         "location",
+        "resource_group_name",
         "identity",
         "site_config",
         "public_network_access_enabled",
@@ -162,7 +189,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
         "resource_group_name",
     ],
     # Identity
-    "azurerm_user_assigned_identity": ["name", "location"],
+    "azurerm_user_assigned_identity": ["name", "location", "resource_group_name"],
     "azurerm_role_assignment": [
         "scope",
         "role_definition_name",
@@ -182,6 +209,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_key_vault": [
         "name",
         "location",
+        "resource_group_name",
         "sku_name",
         "enable_rbac_authorization",
         "public_network_access_enabled",
@@ -190,6 +218,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_storage_account": [
         "name",
         "location",
+        "resource_group_name",
         "account_tier",
         "account_replication_type",
         "public_network_access_enabled",
@@ -205,6 +234,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_mssql_server": [
         "name",
         "location",
+        "resource_group_name",
         "public_network_access_enabled",
         "minimum_tls_version",
     ],
@@ -218,6 +248,7 @@ _RESOURCE_ALLOWLIST: dict[str, list[str]] = {
     "azurerm_postgresql_flexible_server": [
         "name",
         "location",
+        "resource_group_name",
         "public_network_access_enabled",
         "delegated_subnet_id",
     ],

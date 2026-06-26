@@ -298,6 +298,40 @@ class TestValidPlan:
         assert safe["address_space"] == ["10.0.0.0/16"]
         assert "tags" not in safe
 
+    def test_resource_group_name_preserved_for_containment(self):
+        """resource_group_name must survive sanitization so the graph can nest
+        resources under their resource group."""
+        from infrastructure.terraform_plan import _RESOURCE_ALLOWLIST
+
+        # Broadly allowlisted across the resource types that declare one.
+        for rtype in (
+            "azurerm_virtual_network",
+            "azurerm_subnet",
+            "azurerm_key_vault",
+            "azurerm_storage_account",
+            "azurerm_mssql_server",
+            "azurerm_network_interface",
+            "azurerm_private_endpoint",
+        ):
+            assert "resource_group_name" in _RESOURCE_ALLOWLIST[rtype], rtype
+
+        # New container + relationship fields.
+        assert "azurerm_resource_group" in _RESOURCE_ALLOWLIST
+        assert "network_security_group_name" in _RESOURCE_ALLOWLIST["azurerm_network_security_rule"]
+
+        resource = _make_vnet_resource()
+        resource["values"]["resource_group_name"] = "rg-prod"
+        plan = _make_plan(
+            resources_in_root=[resource],
+            resource_changes=[_make_vnet_change()],
+        )
+        from infrastructure.terraform_plan import _build_resource_index, _normalize_resources
+
+        root_module = plan["planned_values"]["root_module"]
+        index = _build_resource_index(root_module, plan["resource_changes"])
+        resources, _ = _normalize_resources(index, {})
+        assert resources[0]["safeAttributes"]["resource_group_name"] == "rg-prod"
+
 
 # ---------------------------------------------------------------------------
 # 5. Recursive child_modules
