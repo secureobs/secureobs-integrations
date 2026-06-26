@@ -10,7 +10,6 @@ VERSION="$(cat "$SCRIPT_DIR/VERSION" | tr -d '[:space:]')"
 IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
 CODE_TEMPLATES="$REPO_ROOT/SecureObs.Dashboard/src/app/core/utils/code-templates.ts"
-SELF_SCAN_WORKFLOW="$REPO_ROOT/.github/workflows/self-scan.yml"
 
 # Portable sed -i (macOS needs a backup extension, Linux doesn't care)
 sedi() { sed -i.bak "$@" && rm -f "${@: -1}.bak"; }
@@ -26,15 +25,10 @@ else
     echo "  ⚠ code-templates.ts not found — skipping"
 fi
 
-# ── self-scan.yml ────────────────────────────────────────────────────────────
-# Dogfood the exact release that was just built. The workflow resolves this tag
-# to a digest and verifies the digest with Cosign before running it.
-if [[ -f "$SELF_SCAN_WORKFLOW" ]]; then
-    sedi "s#^  SCANNER_IMAGE: secureobs/scanner:v[^[:space:]]*#  SCANNER_IMAGE: secureobs/scanner:v${VERSION}#" "$SELF_SCAN_WORKFLOW"
-    echo "  ✔ self-scan.yml      →  SCANNER_IMAGE=v${VERSION}"
-else
-    echo "  ⚠ self-scan.yml not found — skipping"
-fi
+# self-scan.yml is intentionally excluded: it pins the floating "v1" tag so it
+# always dogfoods the latest release without per-build edits. The release CI
+# cannot rewrite it anyway — GITHUB_TOKEN cannot push changes to files under
+# .github/workflows/.
 
 # features.component.ts is intentionally excluded: its YAML examples are now
 # computed at runtime from IntegrationsVersionService.currentTag() so there
