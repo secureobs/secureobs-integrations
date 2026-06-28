@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 
 SCANNER_IMAGE_VERSION = os.environ.get("SECUREOBS_IMAGE_VERSION", "unknown")
 _AUTH_FAILED_MSG = "Authentication failed — check SECUREOBS_API_KEY."
+_LOG_GET = "GET %s"
 _MAX_FINDINGS_PER_BATCH = 1_000
 _MAX_FINDINGS_BATCH_BYTES = 6 * 1024 * 1024
 
@@ -86,7 +87,7 @@ def _finding_batches(items: list) -> list[list]:
 
 def get_blocking(api_url: str, api_key: str, pipeline_run_id: str) -> bool:
     url = f"{api_url}/findings/blocking?pipelineRunId={pipeline_run_id}"
-    log.debug("GET %s", url)
+    log.debug(_LOG_GET, url)
     s = _session(api_key)
     resp = s.get(url, timeout=15, verify=True)
     if resp.status_code == 401:
@@ -96,6 +97,42 @@ def get_blocking(api_url: str, api_key: str, pipeline_run_id: str) -> bool:
         log.error("Gate check returned %s: %s", resp.status_code, resp.text[:200])
         sys.exit(2)
     return bool(resp.json())
+
+
+def get_pr_findings(
+    api_url: str, api_key: str, project_id: str, pipeline_run_id: str
+) -> list[dict[str, Any]] | None:
+    """Fetch the slim, PR-safe finding list for a pipeline run so the caller can
+    place inline comments on the right file/line.
+
+    Returns ``None`` on any failure. PR commenting is best-effort — a flaky fetch
+    must never break the pipeline; the caller falls back to a summary-only
+    comment when this returns ``None``.
+    """
+    url = f"{api_url}/findings/by-run?projectId={project_id}&pipelineRunId={pipeline_run_id}"
+    log.debug(_LOG_GET, url)
+    s = _session(api_key)
+    try:
+        resp = s.get(url, timeout=15, verify=True)
+    except requests.RequestException as e:
+        log.warning("Could not fetch PR findings (%s); skipping inline comments.", e)
+        return None
+
+    if not resp.ok:
+        log.warning(
+            "PR findings endpoint returned %s; skipping inline comments. Body: %s",
+            resp.status_code,
+            resp.text[:200],
+        )
+        return None
+
+    try:
+        data = resp.json()
+    except ValueError:
+        log.warning("PR findings endpoint returned non-JSON; skipping inline comments.")
+        return None
+
+    return data if isinstance(data, list) else None
 
 
 def post_infrastructure_analysis(
@@ -155,7 +192,7 @@ def get_active_scanners(
     behaviour of every other endpoint in this client.
     """
     url = f"{api_url}/projects/{project_id}/scanners/active"
-    log.debug("GET %s", url)
+    log.debug(_LOG_GET, url)
     s = _session(api_key)
     try:
         resp = s.get(url, timeout=15, verify=True)

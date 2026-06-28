@@ -395,9 +395,9 @@ def cmd_pr_comment(args: argparse.Namespace) -> None:
     api_key = config.require_env("SECUREOBS_API_KEY")
 
     if args.platform == "azuredevops":
-        azuredevops.post_or_update(api_url, api_key, args.pipeline_run_id)
+        azuredevops.post_or_update(api_url, api_key, args.pipeline_run_id, args.project_id)
     elif args.platform == "github":
-        github.post_or_update(api_url, api_key, args.pipeline_run_id)
+        github.post_or_update(api_url, api_key, args.pipeline_run_id, args.project_id)
     else:
         log.error("Unknown platform: %s", args.platform)
         sys.exit(1)
