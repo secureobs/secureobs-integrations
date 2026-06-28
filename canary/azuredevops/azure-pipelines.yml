@@ -1,0 +1,172 @@
+# ============================================================================
+# SecureObs INTERNAL CANARY — Azure DevOps, self-contained (recommended path)
+# ----------------------------------------------------------------------------
+# Goes in the ROOT of the Azure DevOps `WebGoat` repo
+# (https://dev.azure.com/jasonachkardiab/WebGoat). It runs the SecureObs scanner
+# image directly — NO service connection and NO external template repo required,
+# only a variable group. This mirrors what the SecureObs dashboard generates for
+# customers by default (docs/quickstart-azure-devops.md).
+#
+# REQUIRED — a variable group named `secureobs` linked to this pipeline
+# (Project settings -> Pipelines -> Library), containing:
+#   SECUREOBS_API_KEY     -> mark as SECRET (lock icon). Project ingestion key.
+#   SECUREOBS_PROJECT_ID  -> canary project GUID.   <-- TODO: set this.
+#   SECUREOBS_TENANT_ID   -> canary tenant GUID.     <-- TODO: set this.
+# OPTIONAL: SECUREOBS_API_URL (only to target a non-prod SecureObs; keep /api).
+#
+# Nothing secret is hardcoded. See azuredevops/SECUREOBS_CANARY_SETUP.md.
+# ============================================================================
+
+trigger:
+  branches:
+    include: ['*']
+pr:
+  branches:
+    include: ['*']
+
+# Queue-time parameter: the SecureObs self-test passes a unique pipelineRunId via
+# the ADO REST API so it can poll SecureObs for this exact run. Empty on normal
+# push/PR runs -> we fall back to $(Build.BuildId).
+parameters:
+  - name: pipelineRunId
+    type: string
+    default: ''
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: secureobs
+
+stages:
+  - stage: SecureObsCanary
+    displayName: 'SecureObs Canary (self-contained)'
+    jobs:
+      - job: Scan
+        displayName: 'Scan WebGoat (Semgrep, Gitleaks, Trivy, …)'
+        steps:
+          - checkout: self
+          - script: |
+              # Fail fast (clearer than a downstream 401) if the secret variable
+              # or its variable group is not linked to this pipeline. ADO does not
+              # auto-expose secret variables to scripts.
+              case "${SECUREOBS_API_KEY:-}" in
+                ''|*SECUREOBS_API_KEY*)
+                  echo "##vso[task.logissue type=error]SECUREOBS_API_KEY is not set. Link the 'secureobs' variable group (Project settings -> Pipelines -> Library). See azuredevops/SECUREOBS_CANARY_SETUP.md."
+                  exit 1 ;;
+              esac
+              case "${SECUREOBS_API_URL:-}" in
+                ''|*SECUREOBS_API_URL*) unset SECUREOBS_API_URL ;;
+              esac
+              set +e
+              docker run --rm \
+                -v "$(Build.SourcesDirectory):/workspace:ro" \
+                -e SECUREOBS_API_KEY \
+                ${SECUREOBS_API_URL:+-e SECUREOBS_API_URL} \
+                secureobs/scanner:v1 \
+                scan \
+                --project-id "$SECUREOBS_PROJECT_ID" \
+                --tenant-id "$SECUREOBS_TENANT_ID" \
+                --pipeline-run-id "${PIPELINE_RUN_ID:-$BUILD_BUILDID}"
+            displayName: 'Run SecureObs scanners'
+            env:
+              SECUREOBS_API_KEY: $(SECUREOBS_API_KEY)
+              SECUREOBS_PROJECT_ID: $(SECUREOBS_PROJECT_ID)
+              SECUREOBS_TENANT_ID: $(SECUREOBS_TENANT_ID)
+              SECUREOBS_API_URL: $(SECUREOBS_API_URL)
+              BUILD_BUILDID: $(Build.BuildId)
+              PIPELINE_RUN_ID: ${{ parameters.pipelineRunId }}
+
+      - job: PrComment
+        displayName: 'Post PR comment'
+        dependsOn: Scan
+        condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+        continueOnError: true
+        steps:
+          - script: |
+              case "${SECUREOBS_API_KEY:-}" in
+                ''|*SECUREOBS_API_KEY*)
+                  echo "##vso[task.logissue type=error]SECUREOBS_API_KEY is not set."
+                  exit 1 ;;
+              esac
+              case "${SECUREOBS_API_URL:-}" in
+                ''|*SECUREOBS_API_URL*) unset SECUREOBS_API_URL ;;
+              esac
+              set +e
+              docker run --rm \
+                -e SECUREOBS_API_KEY \
+                ${SECUREOBS_API_URL:+-e SECUREOBS_API_URL} \
+                -e SYSTEM_ACCESSTOKEN="$SYSTEM_ACCESSTOKEN" \
+                -e SYSTEM_PULLREQUEST_PULLREQUESTID="$SYSTEM_PULLREQUEST_PULLREQUESTID" \
+                -e BUILD_REPOSITORY_ID="$BUILD_REPOSITORY_ID" \
+                -e SYSTEM_TEAMPROJECT="$SYSTEM_TEAMPROJECT" \
+                -e SYSTEM_TEAMFOUNDATIONCOLLECTIONURI="$SYSTEM_TEAMFOUNDATIONCOLLECTIONURI" \
+                secureobs/scanner:v1 \
+                pr-comment \
+                --project-id "$SECUREOBS_PROJECT_ID" \
+                --tenant-id "$SECUREOBS_TENANT_ID" \
+                --pipeline-run-id "${PIPELINE_RUN_ID:-$BUILD_BUILDID}" \
+                --platform azuredevops
+            displayName: 'Post / update PR comment'
+            env:
+              SECUREOBS_API_KEY: $(SECUREOBS_API_KEY)
+              SECUREOBS_PROJECT_ID: $(SECUREOBS_PROJECT_ID)
+              SECUREOBS_TENANT_ID: $(SECUREOBS_TENANT_ID)
+              SECUREOBS_API_URL: $(SECUREOBS_API_URL)
+              BUILD_BUILDID: $(Build.BuildId)
+              PIPELINE_RUN_ID: ${{ parameters.pipelineRunId }}
+              # Requires "Allow scripts to access the OAuth token" on the pipeline
+              # and Contribute-to-PR permission for the build service identity.
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_PULLREQUEST_PULLREQUESTID: $(System.PullRequest.PullRequestId)
+              BUILD_REPOSITORY_ID: $(Build.Repository.ID)
+              SYSTEM_TEAMPROJECT: $(System.TeamProject)
+              SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: $(System.TeamFoundationCollectionUri)
+
+      - job: Gate
+        displayName: 'Build gate (fails on blocking findings, exit 3)'
+        dependsOn: [Scan, PrComment]
+        condition: |
+          and(
+            eq(dependencies.Scan.result, 'Succeeded'),
+            in(dependencies.PrComment.result, 'Succeeded', 'Skipped', 'SucceededWithIssues', 'Failed')
+          )
+        steps:
+          - script: |
+              case "${SECUREOBS_API_KEY:-}" in
+                ''|*SECUREOBS_API_KEY*)
+                  echo "##vso[task.logissue type=error]SECUREOBS_API_KEY is not set."
+                  exit 1 ;;
+              esac
+              case "${SECUREOBS_API_URL:-}" in
+                ''|*SECUREOBS_API_URL*) unset SECUREOBS_API_URL ;;
+              esac
+              set +e
+              docker run --rm \
+                -e SECUREOBS_API_KEY \
+                ${SECUREOBS_API_URL:+-e SECUREOBS_API_URL} \
+                secureobs/scanner:v1 \
+                gate \
+                --project-id "$SECUREOBS_PROJECT_ID" \
+                --tenant-id "$SECUREOBS_TENANT_ID" \
+                --pipeline-run-id "${PIPELINE_RUN_ID:-$BUILD_BUILDID}"
+              code=$?
+              set -e
+              echo "##vso[task.setvariable variable=SECUREOBS_GATE_EXIT_CODE]$code"
+              exit 0
+            displayName: 'Run SecureObs gate'
+            env:
+              SECUREOBS_API_KEY: $(SECUREOBS_API_KEY)
+              SECUREOBS_PROJECT_ID: $(SECUREOBS_PROJECT_ID)
+              SECUREOBS_TENANT_ID: $(SECUREOBS_TENANT_ID)
+              SECUREOBS_API_URL: $(SECUREOBS_API_URL)
+              BUILD_BUILDID: $(Build.BuildId)
+              PIPELINE_RUN_ID: ${{ parameters.pipelineRunId }}
+          - script: exit 3
+            displayName: 'Expected SecureObs gate block'
+            condition: eq(variables['SECUREOBS_GATE_EXIT_CODE'], '3')
+          - script: |
+              echo "##vso[task.logissue type=error]Expected SecureObs gate to exit 3, got $(SECUREOBS_GATE_EXIT_CODE)."
+              exit 1
+            displayName: 'Unexpected scanner exit code'
+            condition: ne(variables['SECUREOBS_GATE_EXIT_CODE'], '3')

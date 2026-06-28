@@ -1,0 +1,173 @@
+# ============================================================================
+# SecureObs INTERNAL CANARY — direct image invocation
+# ----------------------------------------------------------------------------
+# This is NOT a customer file. It lives in the SecureObs-owned `secureobs/webgoat`
+# test repo (OWASP WebGoat, a deliberately vulnerable app) and exercises the
+# SecureObs scanner image *exactly the way a customer would* via a self-contained
+# `docker run`. Its job is to fail loudly the moment a change to the scanner image
+# or the published templates breaks the real customer integration path.
+#
+# Companion workflow `secureobs-canary-reusable.yml` exercises the reusable
+# `uses:` template path. Keep both — they catch different regressions.
+#
+# REQUIRED repository secrets (Settings -> Secrets and variables -> Actions):
+#   SECUREOBS_API_KEY     (secret)  Project-scoped ingestion key for the canary project.
+#   SECUREOBS_PROJECT_ID  (var)     GUID of the canary project   <-- TODO: set this.
+#   SECUREOBS_TENANT_ID   (var)     GUID of the canary tenant    <-- TODO: set this.
+# OPTIONAL repository variable:
+#   SECUREOBS_API_URL     (var)     Override only when pointing the canary at a
+#                                   non-prod SecureObs (must keep the /api suffix).
+#                                   Defaults to https://api.secureobs.com/api.
+#
+# NOTHING secret is ever hardcoded here. The API key is a secret; project/tenant
+# IDs are repository variables so reusable-workflow inputs can receive them.
+# ============================================================================
+name: SecureObs Canary (direct image)
+run-name: SecureObs canary direct ${{ github.event_name == 'workflow_dispatch' && inputs['pipeline-run-id'] || github.run_id }}
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  # workflow_dispatch lets the meta-verification self-test (in the secure-obs
+  # repo) trigger this canary via the GitHub REST API and correlate the run.
+  workflow_dispatch:
+    inputs:
+      pipeline-run-id:
+        description: 'Override the SecureObs pipeline-run-id (used by the self-test for correlation). Leave blank for push/PR runs.'
+        required: false
+        type: string
+
+concurrency:
+  group: secureobs-canary-direct-${{ github.event_name == 'workflow_dispatch' && inputs['pipeline-run-id'] || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || inputs['pipeline-run-id'] == '' }}
+
+permissions:
+  contents: read
+
+env:
+  SCANNER_IMAGE: secureobs/scanner:v1
+
+jobs:
+  scan-and-gate:
+    name: Scan WebGoat + enforce build gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail fast with an actionable message instead of a downstream 401/403 when
+      # the canary is misconfigured. An internal canary SHOULD fail visibly on
+      # misconfiguration — that is the signal we want.
+      - name: Validate canary configuration
+        env:
+          SECUREOBS_API_KEY: ${{ secrets.SECUREOBS_API_KEY }}
+          SECUREOBS_PROJECT_ID: ${{ vars.SECUREOBS_PROJECT_ID }}
+          SECUREOBS_TENANT_ID: ${{ vars.SECUREOBS_TENANT_ID }}
+        run: |
+          missing=()
+          [ -n "$SECUREOBS_API_KEY" ]    || missing+=("SECUREOBS_API_KEY")
+          [ -n "$SECUREOBS_PROJECT_ID" ] || missing+=("SECUREOBS_PROJECT_ID")
+          [ -n "$SECUREOBS_TENANT_ID" ]  || missing+=("SECUREOBS_TENANT_ID")
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "::error::Canary not configured. Set repo secrets/variables: ${missing[*]}. See docs/SECUREOBS_CANARY.md"
+            exit 1
+          fi
+
+      # Derive the pipeline-run-id. For self-test dispatches we honor the supplied
+      # id so the runner can poll SecureObs for this exact run; otherwise we derive
+      # a unique, traceable id from the GitHub run.
+      - name: Compute pipeline run id
+        id: runid
+        env:
+          OVERRIDE: ${{ inputs['pipeline-run-id'] }}
+        run: |
+          if [ -n "$OVERRIDE" ]; then
+            echo "value=$OVERRIDE" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=gha-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run SecureObs scanners against WebGoat
+        env:
+          SECUREOBS_API_KEY: ${{ secrets.SECUREOBS_API_KEY }}
+          SECUREOBS_PROJECT_ID: ${{ vars.SECUREOBS_PROJECT_ID }}
+          SECUREOBS_TENANT_ID: ${{ vars.SECUREOBS_TENANT_ID }}
+          # Empty when the repo variable is unset -> image uses its prod default.
+          SECUREOBS_API_URL: ${{ vars.SECUREOBS_API_URL }}
+          RUN_ID: ${{ steps.runid.outputs.value }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace:ro" \
+            -e SECUREOBS_API_KEY \
+            ${SECUREOBS_API_URL:+-e SECUREOBS_API_URL} \
+            "$SCANNER_IMAGE" \
+            scan \
+            --project-id "$SECUREOBS_PROJECT_ID" \
+            --tenant-id "$SECUREOBS_TENANT_ID" \
+            --pipeline-run-id "$RUN_ID"
+
+      - name: Run SecureObs gate
+        id: gate
+        env:
+          SECUREOBS_API_KEY: ${{ secrets.SECUREOBS_API_KEY }}
+          SECUREOBS_PROJECT_ID: ${{ vars.SECUREOBS_PROJECT_ID }}
+          SECUREOBS_TENANT_ID: ${{ vars.SECUREOBS_TENANT_ID }}
+          SECUREOBS_API_URL: ${{ vars.SECUREOBS_API_URL }}
+          RUN_ID: ${{ steps.runid.outputs.value }}
+        run: |
+          set +e
+          docker run --rm \
+            -e SECUREOBS_API_KEY \
+            ${SECUREOBS_API_URL:+-e SECUREOBS_API_URL} \
+            "$SCANNER_IMAGE" \
+            gate \
+            --project-id "$SECUREOBS_PROJECT_ID" \
+            --tenant-id "$SECUREOBS_TENANT_ID" \
+            --pipeline-run-id "$RUN_ID"
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Fail workflow with expected SecureObs gate block
+        if: steps.gate.outputs.code == '3'
+        run: exit 3
+
+      - name: Unexpected scanner exit code
+        if: steps.gate.outputs.code != '3'
+        run: |
+          echo "::error::Expected SecureObs gate to exit 3 for WebGoat blocking findings, got ${{ steps.gate.outputs.code }}."
+          exit 1
+
+  pr-comment:
+    name: Post PR comment
+    runs-on: ubuntu-latest
+    needs: scan-and-gate
+    # The canary gate is expected to fail on WebGoat's blocking findings. Keep
+    # the PR-comment path covered after that expected red result.
+    if: ${{ always() && github.event_name == 'pull_request' && needs.scan-and-gate.result != 'cancelled' && needs.scan-and-gate.result != 'skipped' }}
+    continue-on-error: true
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Post / update the SecureObs PR comment
+        env:
+          SECUREOBS_API_KEY: ${{ secrets.SECUREOBS_API_KEY }}
+          SECUREOBS_PROJECT_ID: ${{ vars.SECUREOBS_PROJECT_ID }}
+          SECUREOBS_TENANT_ID: ${{ vars.SECUREOBS_TENANT_ID }}
+          SECUREOBS_API_URL: ${{ vars.SECUREOBS_API_URL }}
+        run: |
+          docker run --rm \
+            -e SECUREOBS_API_KEY \
+            ${SECUREOBS_API_URL:+-e SECUREOBS_API_URL} \
+            -e GH_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
+            -e GITHUB_REPOSITORY="${{ github.repository }}" \
+            -e GITHUB_EVENT_NAME="${{ github.event_name }}" \
+            -e GITHUB_REF="${{ github.ref }}" \
+            "$SCANNER_IMAGE" \
+            pr-comment \
+            --project-id "$SECUREOBS_PROJECT_ID" \
+            --tenant-id "$SECUREOBS_TENANT_ID" \
+            --pipeline-run-id "gha-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --platform github

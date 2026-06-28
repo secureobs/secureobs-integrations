@@ -10,7 +10,8 @@ Everything that runs in the **customer's** CI/CD pipeline — as opposed to the 
 |---|---|
 | [scanner-image/](scanner-image/) | The `secureobs/scanner` Docker image: Semgrep, GitLeaks, Trivy, Bandit, Checkov, OSV-Scanner, and ESLint (security plugin), plus the Python orchestrator exposing the `scan` / `gate` / `pr-comment` subcommands. This is the only artifact users actually execute. |
 | [pipeline-templates/azuredevops/](pipeline-templates/azuredevops/) | Azure DevOps `extends:` template wrapping the image's three subcommands in three jobs. **Requires a GitHub service connection** (`SecureObs-GitHub`) in the user's ADO project to fetch the template — which is why the dashboard now generates a self-contained `azure-pipelines.yml` by default and this template is the optional path. |
-| [pipeline-templates/github/](pipeline-templates/github/) | GitHub Actions reusable workflow (`workflow_call`) with `project-id` / `tenant-id` / `image-tag` / `fail-on-blocking` inputs and the `api-key` secret. No extra setup needed — public repos are directly `uses:`-able. |
+| [pipeline-templates/github/](pipeline-templates/github/) | Source GitHub Actions reusable workflow (`workflow_call`) with `project-id` / `tenant-id` / `image-tag` / `fail-on-blocking` inputs and the `api-key` secret. The mirror sync publishes this file to `.github/workflows/secureobs.yml`, which is the only path GitHub allows callers to reference with `uses:`. |
+| [canary/](canary/) | **Internal end-to-end canaries.** Canonical GitHub + Azure DevOps pipelines run against OWASP WebGoat that continuously prove the image + templates work the way customers consume them. Driven by `.github/workflows/template-canary-selftest.yml` (see below). |
 
 ---
 
@@ -22,9 +23,31 @@ Everything that runs in the **customer's** CI/CD pipeline — as opposed to the 
 
 **Azure DevOps (template variant):** extend from `pipeline-templates/azuredevops/secureobs.yml` via the `secureobs/secureobs-integrations` public mirror — requires a GitHub service connection named `SecureObs-GitHub` authorized for the pipeline. Declared parameters: `projectId`, `tenantId`, `imageTag`, `failOnBlocking` (passing anything else is a compile-time error in ADO).
 
-**GitHub Actions:** call `secureobs/secureobs-integrations/.github/workflows/secureobs.yml@v1` (or pin a specific tag). Declared inputs: `project-id`, `tenant-id`, `image-tag`, `fail-on-blocking`; secret: `api-key`.
+**GitHub Actions:** call `secureobs/secureobs-integrations/.github/workflows/secureobs.yml@v1` (or pin a specific `vX.Y.Z` tag). Declared inputs: `project-id`, `tenant-id`, `image-tag`, `fail-on-blocking`; secret: `api-key`.
 
 ---
+
+## Continuous verification (canaries)
+
+Because a change to `scanner-image/**` or `pipeline-templates/**` can break the
+real customer integration while every unit test stays green, an end-to-end
+**canary** runs the published templates against [OWASP WebGoat](https://owasp.org/www-project-webgoat/)
+(a deliberately vulnerable app) on **both** GitHub Actions and Azure DevOps:
+
+- Canonical pipelines live in [`canary/`](canary/) and are mirrored into the
+  SecureObs-owned WebGoat test repos (`secureobs/webgoat` on GitHub, the
+  `WebGoat` repo on Azure DevOps).
+- The meta-verification workflow `.github/workflows/template-canary-selftest.yml`
+  triggers them after the public mirror sync completes (or on demand), then
+  polls the SecureObs API to confirm each platform recorded a run, ingested
+  findings (≥1 CRITICAL), and that the build gate blocked correctly. Runner:
+  [`tools/TemplateCanaryRunner/`](../tools/TemplateCanaryRunner/) (Go).
+- Playwright UI tests (`SecureObs.Dashboard/tests/playwright`) assert the
+  dashboard reflects those runs and findings.
+
+See [`docs/TEMPLATE_CANARY_ARCHITECTURE.md`](../docs/TEMPLATE_CANARY_ARCHITECTURE.md),
+[`docs/TEMPLATE_CANARY_SELFTEST.md`](../docs/TEMPLATE_CANARY_SELFTEST.md), and
+[`SecureObs.Dashboard/PLAYWRIGHT_TESTS.md`](../SecureObs.Dashboard/PLAYWRIGHT_TESTS.md).
 
 ## Versioning policy
 
@@ -36,7 +59,7 @@ This folder follows [semver](https://semver.org). Version tags on the `secureobs
 | New subcommand, new parameter, new scanner | Minor (`v1.1`) |
 | Bug fix, dependency update, docs | Patch (`v1.0.1`) |
 
-Major version tags (`v1`, `v2`) always point to the latest stable in that line, so users pinned to `v1` receive non-breaking updates automatically.
+Exact version tags (`v1.2.3`) are immutable once published. Floating minor and major tags (`v1.2`, `v1`) are moved by the sync workflow to the latest stable release in that line, so users pinned to `v1` receive non-breaking updates automatically.
 
 ---
 
@@ -91,6 +114,6 @@ The old scripts are still hosted and functional. They're marked deprecated in th
    git tag integrations-v1.1.0
    git push origin integrations-v1.1.0
    ```
-   The sync action mirrors this as `v1.1.0` on the public repo.
+   The sync action mirrors this as `v1.1.0` on the public repo and updates the floating `v1.1` and `v1` tags. The scanner image CI performs this step automatically after it builds the Docker image; `sync-integrations.yml` also has a `workflow_run` backstop because the scanner release commit uses `[skip ci]`.
 4. Run `integrations/scanner-image/build-and-push.sh` to publish the Docker image to Docker Hub.
-5. Update the `ref:` in `pipeline-templates/azuredevops/secureobs.yml` and the `uses:` in `pipeline-templates/github/secureobs.yml` if pinning to a new tag.
+5. If the public mirror ever misses a tag, manually run **Sync integrations to public mirror** with `release_tag` set to the missing public tag (for example, `v1.2.14`).

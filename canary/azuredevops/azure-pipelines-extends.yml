@@ -1,0 +1,63 @@
+# ============================================================================
+# SecureObs INTERNAL CANARY — Azure DevOps, `extends:` template path
+# ----------------------------------------------------------------------------
+# Exercises the OPTIONAL template path: extend from the SecureObs ADO template
+# published to the public mirror `secureobs/secureobs-integrations`. This is the
+# variant that REQUIRES a GitHub service connection, so it is the one most likely
+# to break for a new customer — exactly why we canary it separately.
+#
+# Use this as a SECOND pipeline in the ADO WebGoat repo (e.g. committed as
+# `azure-pipelines-extends.yml` and added as its own pipeline definition), in
+# addition to the self-contained `azure-pipelines.yml`.
+#
+# PREREQUISITES (set up once in the ADO project UI — see
+# azuredevops/SECUREOBS_CANARY_SETUP.md):
+#   1. A GitHub **service connection** named EXACTLY `SecureObs-GitHub`,
+#      authorized for this pipeline, with read access to
+#      `secureobs/secureobs-integrations`.
+#   2. A variable group `secureobs` linked to this pipeline with the SECRET
+#      `SECUREOBS_API_KEY` (the template reads `$(SECUREOBS_API_KEY)`).
+#   3. The mirror tag `v1` must exist on `secureobs/secureobs-integrations`
+#      (produced by sync-integrations.yml on each integrations-v* release).
+#
+# The template's declared parameters are ONLY: projectId, tenantId, imageTag,
+# failOnBlocking. Passing anything else is a compile-time error in ADO.
+# ============================================================================
+
+trigger:
+  branches:
+    include: ['*']
+pr:
+  branches:
+    include: ['*']
+
+# Queue-time parameter: the SecureObs self-test passes a unique pipelineRunId via
+# the ADO REST API so it can poll SecureObs for this exact run.
+parameters:
+  - name: pipelineRunId
+    type: string
+    default: ''
+
+# The template reads $(SECUREOBS_API_KEY); link the variable group that holds it.
+variables:
+  - group: secureobs
+
+resources:
+  repositories:
+    - repository: secureobs                      # local alias used in template ref
+      type: github
+      name: secureobs/secureobs-integrations     # public mirror of integrations/
+      endpoint: SecureObs-GitHub                 # GitHub service connection name
+      ref: refs/tags/v1                          # pin to the floating v1 mirror tag
+
+extends:
+  template: pipeline-templates/azuredevops/secureobs.yml@secureobs
+  parameters:
+    # TODO: replace with the canary project/tenant GUIDs. These are not secret;
+    # they are passed as template parameters (not via the variable group).
+    projectId: 'TODO-CANARY-PROJECT-GUID'
+    tenantId: 'TODO-CANARY-TENANT-GUID'
+    imageTag: 'v1'
+    failOnBlocking: true
+    pipelineRunId: ${{ parameters.pipelineRunId }}
+    expectedGateExitCode: '3'
