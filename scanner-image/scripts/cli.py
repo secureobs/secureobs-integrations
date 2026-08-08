@@ -387,7 +387,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
 def cmd_gate(args: argparse.Namespace) -> None:
     api_url = config.get_api_url()
     api_key = config.require_env("SECUREOBS_API_KEY")
-    gate_module.run(api_url, api_key, args.pipeline_run_id)
+    gate_module.run(api_url, api_key, args.project_id, args.pipeline_run_id)
 
 
 def cmd_pr_comment(args: argparse.Namespace) -> None:
