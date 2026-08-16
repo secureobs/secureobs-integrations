@@ -1,6 +1,6 @@
 {
   "root": true,
-  "extends": ["plugin:security/recommended"],
+  "extends": ["plugin:security/recommended-legacy"],
   "ignorePatterns": [
     "node_modules/**",
     "dist/**",

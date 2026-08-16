@@ -146,16 +146,15 @@ def run(
             timeout=CHECKOV_TIMEOUT_SECONDS,
         )
         if proc.returncode not in (0, 1):
-            log.error(
-                "Checkov exited %d: %s",
-                proc.returncode,
-                (proc.stderr or proc.stdout or "")[:800],
-            )
-            return ScanResult(
-                skipped=True,
-                skip_reason="Checkov Terraform analysis failed",
-                exit_code=proc.returncode,
-                stderr_tail=(proc.stderr or proc.stdout or "")[-2000:],
+            # Checkov exits 0 (clean) or 1 (failed checks found) — both are
+            # success. Any other code means Checkov itself couldn't run — an
+            # operational failure, not a legitimate "nothing to scan" skip.
+            # Raise so cli.py's exception handler marks this scanner's
+            # status as "error" (not "skipped") and continues on to the
+            # remaining scanners.
+            stderr_tail = (proc.stderr or proc.stdout or "")[-800:]
+            raise RuntimeError(
+                f"checkov exited with unexpected code {proc.returncode}: {stderr_tail}"
             )
 
         results_path = os.path.join(tmpdir, "results.json")

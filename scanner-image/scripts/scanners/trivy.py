@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import subprocess
-import sys
 
 from .base import ScanResult
 
@@ -46,8 +45,17 @@ def run(
         text=True,
     )
     if proc.returncode not in (0, 1):
-        log.error("Trivy exited %d: %s", proc.returncode, (proc.stderr or "")[:800])
-        sys.exit(2)
+        # Exit codes outside {0, 1} mean Trivy itself couldn't run — an
+        # operational failure. Previously this called sys.exit(2), which
+        # raises SystemExit (a BaseException) and isn't caught by cli.py's
+        # `except Exception:` handler — that silently killed the entire
+        # `scan` subcommand, skipping every remaining scanner. Raise a plain
+        # exception instead so cli.py's existing handler marks trivy's
+        # status as "error" and continues on to the remaining scanners.
+        stderr_tail = (proc.stderr or "")[:800]
+        raise RuntimeError(
+            f"trivy exited with unexpected code {proc.returncode}: {stderr_tail}"
+        )
 
     if not os.path.exists(_OUT):
         return ScanResult(skipped=True, skip_reason="no trivy output file")

@@ -108,12 +108,12 @@ def run(
     success, stderr = _try_invoke(source_dir)
 
     if not success:
-        return ScanResult(
-            skipped=True,
-            skip_reason="osv_invocation_failed",
-            exit_code=-1,
-            stderr_tail=stderr[-500:],
-        )
+        # Both CLI syntax variants failed with an exit code outside {0, 1} —
+        # osv-scanner itself couldn't run, an operational failure (as the
+        # docstring above already says: "do not mask it"). Raise so cli.py's
+        # exception handler marks this scanner's status as "error" (not
+        # "skipped") and continues on to the remaining scanners.
+        raise RuntimeError(f"osv-scanner invocation failed: {stderr[-500:]}")
 
     if not os.path.isfile(_OUTPUT_FILE):
         log.info("OSV-Scanner produced no output file — no supported lockfiles found.")
@@ -123,13 +123,9 @@ def run(
         with open(_OUTPUT_FILE) as fh:
             data = json.load(fh)
     except (json.JSONDecodeError, OSError) as exc:
-        log.warning("OSV-Scanner output file could not be parsed: %s", exc)
-        return ScanResult(
-            skipped=True,
-            skip_reason="osv_bad_output_file",
-            exit_code=-1,
-            stderr_tail=stderr[-500:],
-        )
+        # osv-scanner ran but produced untrustworthy output — also an
+        # operational failure, not a legitimate skip.
+        raise RuntimeError(f"osv-scanner output file could not be parsed: {exc}") from exc
 
     findings: list[dict] = []
     for block in data.get("results") or []:

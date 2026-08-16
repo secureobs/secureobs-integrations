@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import subprocess
-import sys
 
 from .base import ScanResult
 
@@ -34,10 +33,18 @@ def run(
         env=env,
     )
 
-    # semgrep exits 0 (clean) or 1 (findings found) — both are success
+    # semgrep exits 0 (clean) or 1 (findings found) — both are success.
+    # Any other code means Semgrep itself couldn't run — an operational
+    # failure. Previously this called sys.exit(2), which raises SystemExit
+    # (a BaseException) and isn't caught by cli.py's `except Exception:`
+    # handler — that silently killed the entire `scan` subcommand, skipping
+    # every remaining scanner. Raise a plain exception instead so cli.py's
+    # existing handler marks semgrep's status as "error" and continues on.
     if proc.returncode not in (0, 1):
-        log.error("Semgrep exited with unexpected code %d: %s", proc.returncode, proc.stderr[:500])
-        sys.exit(2)
+        stderr_tail = (proc.stderr or "")[:500]
+        raise RuntimeError(
+            f"semgrep exited with unexpected code {proc.returncode}: {stderr_tail}"
+        )
 
     if not os.path.exists(_RESULTS_FILE):
         log.info("Semgrep produced no results file — treating as clean.")

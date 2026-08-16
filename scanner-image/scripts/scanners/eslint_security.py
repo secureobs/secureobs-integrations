@@ -63,11 +63,14 @@ def run(
     )
 
     if proc.returncode not in (0, 1):
-        return ScanResult(
-            skipped=True,
-            skip_reason=f"eslint_exit_{proc.returncode}",
-            exit_code=proc.returncode,
-            stderr_tail=(proc.stderr or "")[-500:],
+        # Exit codes outside {0, 1} mean ESLint itself couldn't run (bad
+        # config, missing plugin, crash, etc.) — an operational failure, not
+        # a legitimate "nothing to scan" skip. Raise so cli.py's exception
+        # handler marks this scanner's status as "error" (not "skipped")
+        # and continues on to the remaining scanners.
+        stderr_tail = (proc.stderr or "")[-500:]
+        raise RuntimeError(
+            f"eslint exited with unexpected code {proc.returncode}: {stderr_tail}"
         )
 
     raw = proc.stdout.strip()
@@ -76,9 +79,10 @@ def run(
 
     try:
         files = json.loads(raw)
-    except json.JSONDecodeError:
-        log.warning("ESLint returned non-JSON — skip.")
-        return ScanResult(skipped=True, skip_reason="eslint_bad_json")
+    except json.JSONDecodeError as exc:
+        # ESLint ran but produced untrustworthy output — also an operational
+        # failure, not a legitimate skip.
+        raise RuntimeError(f"eslint produced invalid JSON output: {exc}") from exc
 
     findings: list[dict] = []
     for entry in files:

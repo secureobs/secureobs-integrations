@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 import sys
+import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -49,6 +50,24 @@ def _resolve_workspace_file(relative_path: Optional[str]) -> str:
         raise SystemExit(
             f"--terraform-plan-json resolves outside the workspace: {relative_path!r}")
     return candidate
+
+
+def _terraform_root_id(value: str) -> str:
+    """argparse type= for --terraform-root-id: validate locally, fail fast.
+
+    The API DTO (TerraformPlanAnalysisRequestDto.TerraformRootId) is a
+    strictly-typed nullable Guid, so a non-UUID string would be rejected by
+    ASP.NET Core's JSON binding before ever reaching the validator. Catch that
+    here instead of surfacing an opaque HTTP 400 from the API.
+    """
+    try:
+        uuid.UUID(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"--terraform-root-id must be a valid UUID (got {value!r}); "
+            "omit the flag if you have no managed Terraform-root identity."
+        ) from exc
+    return value
 
 
 def _add_common_args(p: argparse.ArgumentParser) -> None:
@@ -101,11 +120,13 @@ def _add_iac_args(p: argparse.ArgumentParser) -> None:
     )
     p.add_argument(
         "--terraform-root-id",
+        type=_terraform_root_id,
         default=None,
-        metavar="STABLE_ID",
+        metavar="UUID",
         help=(
-            "Stable configuration ID for the Terraform root being analysed. "
-            "Used to distinguish multiple roots in a monorepo."
+            "UUID of the managed Terraform root this analysis belongs to. "
+            "Used to distinguish multiple roots in a monorepo. Omit for "
+            "unmanaged/single-root setups (e.g. dogfood self-scan)."
         ),
     )
     p.add_argument(
