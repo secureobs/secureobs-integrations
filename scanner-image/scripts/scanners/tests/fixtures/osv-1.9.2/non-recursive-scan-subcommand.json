@@ -1,0 +1,712 @@
+{
+ "results": [
+  {
+   "source": {
+    "path": "/workspace/requirements.txt",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "pyyaml",
+      "version": "5.3",
+      "ecosystem": "PyPI"
+     },
+     "dependency_groups": [
+      "requirements"
+     ],
+     "vulnerabilities": [
+      {
+       "modified": "2026-05-04T08:57:14Z",
+       "published": "2021-04-20T16:14:24Z",
+       "schema_version": "1.9.0",
+       "id": "GHSA-6757-jp84-gxfx",
+       "aliases": [
+        "CVE-2020-1747",
+        "PYSEC-2020-96"
+       ],
+       "summary": "Improper Input Validation in PyYAML",
+       "details": "A vulnerability was discovered in the PyYAML library in versions before 5.3.1, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. An attacker could use this flaw to execute arbitrary code on the system by abusing the python/object/new constructor.",
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "pyyaml",
+          "purl": "pkg:pypi/pyyaml"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "5.1b7"
+            },
+            {
+             "fixed": "5.3.1"
+            }
+           ]
+          }
+         ],
+         "database_specific": {
+          "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2021/04/GHSA-6757-jp84-gxfx/GHSA-6757-jp84-gxfx.json"
+         }
+        }
+       ],
+       "severity": [
+        {
+         "type": "CVSS_V3",
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        },
+        {
+         "type": "CVSS_V4",
+         "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N"
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-1747"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/github/advisory-database/pull/4942"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/yaml/pyyaml/pull/386"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/yaml/pyyaml/commit/0cedb2a0697b2bc49e4f3841b8d4590b6b15657e"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/yaml/pyyaml/commit/5080ba513377b6355a0502104846ee804656f1e0"
+        },
+        {
+         "type": "WEB",
+         "url": "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2020-1747"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://github.com/advisories/GHSA-6757-jp84-gxfx"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/pypa/advisory-database/tree/main/vulns/pyyaml/PYSEC-2020-96.yaml"
+        },
+        {
+         "type": "PACKAGE",
+         "url": "https://github.com/yaml/pyyaml"
+        },
+        {
+         "type": "WEB",
+         "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/7PPAS6C4SZRDQLR7C22A5U3QOLXY33JX"
+        },
+        {
+         "type": "WEB",
+         "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/K5HEPD7LEVDPCITY5IMDYWXUMX37VFMY"
+        },
+        {
+         "type": "WEB",
+         "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/MMQXSZXNJT6ERABJZAAICI3DQSQLCP3D"
+        },
+        {
+         "type": "WEB",
+         "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/WORRFHPQVAFKKXXWLSSW6XKUYLWM6CSH"
+        },
+        {
+         "type": "WEB",
+         "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/ZBJA3SGNJKCAYPSHOHWY3KBCWNM5NYK2"
+        },
+        {
+         "type": "WEB",
+         "url": "https://www.oracle.com/security-alerts/cpujul2022.html"
+        },
+        {
+         "type": "WEB",
+         "url": "http://lists.opensuse.org/opensuse-security-announce/2020-04/msg00017.html"
+        },
+        {
+         "type": "WEB",
+         "url": "http://lists.opensuse.org/opensuse-security-announce/2020-05/msg00017.html"
+        }
+       ],
+       "database_specific": {
+        "cwe_ids": [
+         "CWE-20"
+        ],
+        "github_reviewed": true,
+        "github_reviewed_at": "2021-04-07T22:29:00Z",
+        "nvd_published_at": "2020-03-24T15:15:00Z",
+        "severity": "CRITICAL"
+       }
+      },
+      {
+       "modified": "2026-02-04T03:33:10Z",
+       "published": "2021-03-25T21:26:26Z",
+       "schema_version": "1.9.0",
+       "id": "GHSA-8q59-q68h-6hv4",
+       "aliases": [
+        "CVE-2020-14343",
+        "PYSEC-2021-142"
+       ],
+       "related": [
+        "CVE-2026-24009"
+       ],
+       "summary": "Improper Input Validation in PyYAML",
+       "details": "A vulnerability was discovered in the PyYAML library in versions before 5.4, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. This flaw allows an attacker to execute arbitrary code on the system by abusing the python/object/new constructor. This flaw is due to an incomplete fix for CVE-2020-1747.",
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "pyyaml",
+          "purl": "pkg:pypi/pyyaml"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "5.4"
+            }
+           ]
+          }
+         ],
+         "database_specific": {
+          "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2021/03/GHSA-8q59-q68h-6hv4/GHSA-8q59-q68h-6hv4.json"
+         }
+        }
+       ],
+       "severity": [
+        {
+         "type": "CVSS_V3",
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        },
+        {
+         "type": "CVSS_V4",
+         "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N"
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-14343"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/SeldonIO/seldon-core/issues/2252"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/yaml/pyyaml/issues/420"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/yaml/pyyaml/issues/420#issuecomment-663673966"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/yaml/pyyaml/commit/a001f2782501ad2d24986959f0239a354675f9dc"
+        },
+        {
+         "type": "WEB",
+         "url": "https://bugzilla.redhat.com/show_bug.cgi?id=1860466"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://github.com/advisories/GHSA-8q59-q68h-6hv4"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/pypa/advisory-database/tree/main/vulns/pyyaml/PYSEC-2021-142.yaml"
+        },
+        {
+         "type": "PACKAGE",
+         "url": "https://github.com/yaml/pyyaml"
+        },
+        {
+         "type": "WEB",
+         "url": "https://pypi.org/project/PyYAML"
+        },
+        {
+         "type": "WEB",
+         "url": "https://www.oracle.com/security-alerts/cpuapr2022.html"
+        },
+        {
+         "type": "WEB",
+         "url": "https://www.oracle.com/security-alerts/cpujul2022.html"
+        }
+       ],
+       "database_specific": {
+        "cwe_ids": [
+         "CWE-20"
+        ],
+        "github_reviewed": true,
+        "github_reviewed_at": "2021-03-25T21:15:23Z",
+        "nvd_published_at": "2021-02-09T21:15:00Z",
+        "severity": "CRITICAL"
+       }
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "GHSA-6757-jp84-gxfx"
+       ],
+       "aliases": [
+        "CVE-2020-1747",
+        "GHSA-6757-jp84-gxfx",
+        "PYSEC-2020-96"
+       ],
+       "max_severity": "9.8"
+      },
+      {
+       "ids": [
+        "GHSA-8q59-q68h-6hv4"
+       ],
+       "aliases": [
+        "CVE-2020-14343",
+        "GHSA-8q59-q68h-6hv4",
+        "PYSEC-2021-142"
+       ],
+       "max_severity": "9.8"
+      }
+     ]
+    },
+    {
+     "package": {
+      "name": "requests",
+      "version": "2.19.0",
+      "ecosystem": "PyPI"
+     },
+     "dependency_groups": [
+      "requirements"
+     ],
+     "vulnerabilities": [
+      {
+       "modified": "2026-09-10T03:50:25Z",
+       "published": "2025-06-09T19:06:08Z",
+       "schema_version": "1.9.0",
+       "id": "GHSA-9hjg-9r4m-mvj7",
+       "aliases": [
+        "CVE-2024-47081",
+        "PYSEC-2026-1872"
+       ],
+       "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+       "details": "### Impact\n\nDue to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs.\n\n### Workarounds\nFor older versions of Requests, use of the .netrc file can be disabled with `trust_env=False` on your Requests Session ([docs](https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env)).\n\n### References\nhttps://github.com/psf/requests/pull/6965\nhttps://seclists.org/fulldisclosure/2025/Jun/2",
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "requests",
+          "purl": "pkg:pypi/requests"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "2.32.4"
+            }
+           ]
+          }
+         ],
+         "database_specific": {
+          "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2025/06/GHSA-9hjg-9r4m-mvj7/GHSA-9hjg-9r4m-mvj7.json"
+         }
+        }
+       ],
+       "severity": [
+        {
+         "type": "CVSS_V3",
+         "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N"
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/security/advisories/GHSA-9hjg-9r4m-mvj7"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-47081"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/pull/6965"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/commit/96ba401c1296ab1dda74a2365ef36d88f7d144ef"
+        },
+        {
+         "type": "PACKAGE",
+         "url": "https://github.com/psf/requests"
+        },
+        {
+         "type": "WEB",
+         "url": "https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env"
+        },
+        {
+         "type": "WEB",
+         "url": "https://seclists.org/fulldisclosure/2025/Jun/2"
+        },
+        {
+         "type": "WEB",
+         "url": "http://seclists.org/fulldisclosure/2025/Jun/2"
+        },
+        {
+         "type": "WEB",
+         "url": "http://www.openwall.com/lists/oss-security/2025/06/03/11"
+        },
+        {
+         "type": "WEB",
+         "url": "http://www.openwall.com/lists/oss-security/2025/06/03/9"
+        },
+        {
+         "type": "WEB",
+         "url": "http://www.openwall.com/lists/oss-security/2025/06/04/1"
+        },
+        {
+         "type": "WEB",
+         "url": "http://www.openwall.com/lists/oss-security/2025/06/04/6"
+        }
+       ],
+       "database_specific": {
+        "cwe_ids": [
+         "CWE-522"
+        ],
+        "github_reviewed": true,
+        "github_reviewed_at": "2025-06-09T19:06:08Z",
+        "nvd_published_at": "2025-06-09T18:15:24Z",
+        "severity": "MODERATE"
+       }
+      },
+      {
+       "modified": "2026-09-10T03:50:13Z",
+       "published": "2024-05-20T20:15:00Z",
+       "schema_version": "1.9.0",
+       "id": "GHSA-9wx4-h78v-vm56",
+       "aliases": [
+        "CVE-2024-35195",
+        "PYSEC-2026-1873"
+       ],
+       "summary": "Requests `Session` object does not verify requests after making first request with verify=False",
+       "details": "When using a `requests.Session`, if the first request to a given origin is made with `verify=False`, TLS certificate verification may remain disabled for all subsequent requests to that origin, even if `verify=True` is explicitly specified later.\n\nThis occurs because the underlying connection is reused from the session's connection pool, causing the initial TLS verification setting to persist for the lifetime of the pooled connection. As a result, applications may unintentionally send requests without certificate verification, leading to potential man-in-the-middle attacks and compromised confidentiality or integrity.\n\nThis behavior affects versions of `requests` prior to 2.32.0.",
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "requests",
+          "purl": "pkg:pypi/requests"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "2.32.0"
+            }
+           ]
+          }
+         ],
+         "database_specific": {
+          "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/05/GHSA-9wx4-h78v-vm56/GHSA-9wx4-h78v-vm56.json"
+         }
+        }
+       ],
+       "severity": [
+        {
+         "type": "CVSS_V3",
+         "score": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:N"
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/security/advisories/GHSA-9wx4-h78v-vm56"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-35195"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/pull/6655"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/commit/a58d7f2ffb4d00b46dca2d70a3932a0b37e22fac"
+        },
+        {
+         "type": "PACKAGE",
+         "url": "https://github.com/psf/requests"
+        },
+        {
+         "type": "WEB",
+         "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/IYLSNK5TL46Q6XPRVMHVWS63MVJQOK4Q"
+        },
+        {
+         "type": "WEB",
+         "url": "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/N7WP6EYDSUOCOJYHDK5NX43PYZ4SNHGZ"
+        }
+       ],
+       "database_specific": {
+        "cwe_ids": [
+         "CWE-670"
+        ],
+        "github_reviewed": true,
+        "github_reviewed_at": "2024-05-20T20:15:00Z",
+        "nvd_published_at": "2024-05-20T21:15:09Z",
+        "severity": "MODERATE"
+       }
+      },
+      {
+       "modified": "2026-09-10T03:50:39Z",
+       "published": "2026-03-25T16:56:28Z",
+       "schema_version": "1.9.0",
+       "id": "GHSA-gc5v-m9x4-r6x2",
+       "aliases": [
+        "CVE-2026-25645",
+        "PYSEC-2026-2275"
+       ],
+       "summary": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function",
+       "details": "### Impact\nThe `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting files from zip archives into the system temporary directory. If the target file already exists, it is reused without validation. A local attacker with write access to the temp directory could pre-create a malicious file that would be loaded in place of the legitimate one.\n\n### Affected usages\n**Standard usage of the Requests library is not affected by this vulnerability.** Only applications that call `extract_zipped_paths()` directly are impacted.\n\n### Remediation\nUpgrade to at least Requests 2.33.0, where the library now extracts files to a non-deterministic location.\n\nIf developers are unable to upgrade, they can set `TMPDIR` in their environment to a directory with restricted write access.",
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "requests",
+          "purl": "pkg:pypi/requests"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "2.33.0"
+            }
+           ]
+          }
+         ],
+         "database_specific": {
+          "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/03/GHSA-gc5v-m9x4-r6x2/GHSA-gc5v-m9x4-r6x2.json"
+         }
+        }
+       ],
+       "severity": [
+        {
+         "type": "CVSS_V3",
+         "score": "CVSS:3.1/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:H/A:N"
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/security/advisories/GHSA-gc5v-m9x4-r6x2"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-25645"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/commit/66d21cb07bd6255b1280291c4fafb71803cdb3b7"
+        },
+        {
+         "type": "PACKAGE",
+         "url": "https://github.com/psf/requests"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/psf/requests/releases/tag/v2.33.0"
+        }
+       ],
+       "database_specific": {
+        "cwe_ids": [
+         "CWE-377"
+        ],
+        "github_reviewed": true,
+        "github_reviewed_at": "2026-03-25T16:56:28Z",
+        "nvd_published_at": "2026-03-25T17:16:52Z",
+        "severity": "MODERATE"
+       }
+      },
+      {
+       "modified": "2024-10-21T21:42:55Z",
+       "published": "2018-10-29T19:06:46Z",
+       "schema_version": "1.9.0",
+       "id": "GHSA-x84v-xcm2-53pg",
+       "aliases": [
+        "CVE-2018-18074",
+        "PYSEC-2018-28"
+       ],
+       "summary": "Insufficiently Protected Credentials in Requests",
+       "details": "The Requests package through 2.19.1 before 2018-09-14 for Python sends an HTTP Authorization header to an http URI upon receiving a same-hostname https-to-http redirect, which makes it easier for remote attackers to discover credentials by sniffing the network.",
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "requests",
+          "purl": "pkg:pypi/requests"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "2.20.0"
+            }
+           ]
+          }
+         ],
+         "database_specific": {
+          "last_known_affected_version_range": "<= 2.19.1",
+          "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2018/10/GHSA-x84v-xcm2-53pg/GHSA-x84v-xcm2-53pg.json"
+         }
+        }
+       ],
+       "severity": [
+        {
+         "type": "CVSS_V3",
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2018-18074"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/requests/requests/issues/4716"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/requests/requests/pull/4718"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/requests/requests/commit/c45d7c49ea75133e52ab22a8e9e13173938e36ff"
+        },
+        {
+         "type": "WEB",
+         "url": "https://access.redhat.com/errata/RHSA-2019:2035"
+        },
+        {
+         "type": "WEB",
+         "url": "https://bugs.debian.org/910766"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/pypa/advisory-database/tree/main/vulns/requests/PYSEC-2018-28.yaml"
+        },
+        {
+         "type": "PACKAGE",
+         "url": "https://github.com/requests/requests"
+        },
+        {
+         "type": "WEB",
+         "url": "https://usn.ubuntu.com/3790-1"
+        },
+        {
+         "type": "WEB",
+         "url": "https://usn.ubuntu.com/3790-2"
+        },
+        {
+         "type": "WEB",
+         "url": "https://www.oracle.com/security-alerts/cpujul2022.html"
+        },
+        {
+         "type": "WEB",
+         "url": "http://docs.python-requests.org/en/master/community/updates/#release-and-version-history"
+        },
+        {
+         "type": "WEB",
+         "url": "http://lists.opensuse.org/opensuse-security-announce/2019-07/msg00024.html"
+        }
+       ],
+       "database_specific": {
+        "cwe_ids": [
+         "CWE-522"
+        ],
+        "github_reviewed": true,
+        "github_reviewed_at": "2020-06-16T22:02:40Z",
+        "nvd_published_at": "2018-10-09T17:29:00Z",
+        "severity": "HIGH"
+       }
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "GHSA-x84v-xcm2-53pg"
+       ],
+       "aliases": [
+        "CVE-2018-18074",
+        "GHSA-x84v-xcm2-53pg",
+        "PYSEC-2018-28"
+       ],
+       "max_severity": "7.5"
+      },
+      {
+       "ids": [
+        "GHSA-9hjg-9r4m-mvj7"
+       ],
+       "aliases": [
+        "CVE-2024-47081",
+        "GHSA-9hjg-9r4m-mvj7",
+        "PYSEC-2026-1872"
+       ],
+       "max_severity": "5.3"
+      },
+      {
+       "ids": [
+        "GHSA-9wx4-h78v-vm56"
+       ],
+       "aliases": [
+        "CVE-2024-35195",
+        "GHSA-9wx4-h78v-vm56",
+        "PYSEC-2026-1873"
+       ],
+       "max_severity": "5.6"
+      },
+      {
+       "ids": [
+        "GHSA-gc5v-m9x4-r6x2"
+       ],
+       "aliases": [
+        "CVE-2026-25645",
+        "GHSA-gc5v-m9x4-r6x2",
+        "PYSEC-2026-2275"
+       ],
+       "max_severity": "4.4"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "experimental_config": {
+  "licenses": {
+   "summary": false,
+   "allowlist": null
+  }
+ }
+}

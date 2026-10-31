@@ -1,0 +1,7 @@
+{
+ "note": "Observed with the pinned osv-scanner v1.9.2 binary in a network-restricted environment where api.osv.dev was denied by the egress proxy (online mode, no --experimental-offline). Exit code and stderr are verbatim.",
+ "command": ["osv-scanner", "--format", "json", "--output", "<output-file>", "--recursive", "<project-dir>"],
+ "returncode": 129,
+ "output_file_written": false,
+ "stderr_tail": "Scanned <project-dir>/package-lock.json file and found 1 package\nAPI query failed: osv.dev query failed: Post \"https://api.osv.dev/v1/querybatch\": Forbidden"
+}

@@ -37,7 +37,8 @@ def run(
     del config
     if not _workspace_has_js(source_dir):
         log.info("No JavaScript files found — skipping eslint-security.")
-        return ScanResult(skipped=True, skip_reason="no_js_files")
+        # Nothing to analyse is "not applicable", not a failure.
+        return ScanResult(skipped=True, skip_reason="no_js_files", not_applicable=True)
 
     if not os.path.isfile(CFG):
         log.error("Missing ESLint config at %s", CFG)

@@ -1,0 +1,39 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Semgrep OSS",
+          "semanticVersion": "1.92.0",
+          "rules": [
+            {
+              "id": "python.flask.security.injection"
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "python.flask.security.injection",
+          "level": "error",
+          "message": {
+            "text": "Possible SQL injection."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app.py"
+                },
+                "region": {
+                  "startLine": 10
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

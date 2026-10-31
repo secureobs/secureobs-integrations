@@ -156,6 +156,7 @@ class TestLegitimateSkips:
 
         assert result.skipped is True
         assert result.skip_reason == "no_js_files"
+        assert result.not_applicable is True  # reported as "not applicable", never as failed
         assert calls == []  # eslint must never even be invoked
 
     def test_missing_config_is_still_a_skip(self, tmp_path, monkeypatch):

@@ -1,0 +1,72 @@
+{
+ "recursive-mixed": {
+  "command": [
+   "osv-scanner",
+   "--format",
+   "json",
+   "--output",
+   "<output-file>",
+   "--recursive",
+   "/workspace"
+  ],
+  "returncode": 1,
+  "output_file_written": true,
+  "stderr_tail": "Scanned /workspace/java/gradle.lockfile file and found 1 package\nScanned /workspace/java/pom.xml file and found 1 package\nScanned /workspace/requirements.txt file and found 2 packages\nScanned /workspace/services/worker/poetry.lock file and found 1 package\nScanned /workspace/src/Api/packages.lock.json file and found 2 packages\nScanned /workspace/web/package-lock.json file and found 4 packages"
+ },
+ "non-recursive-scan-subcommand": {
+  "command": [
+   "osv-scanner",
+   "scan",
+   "--format",
+   "json",
+   "--output",
+   "<output-file>",
+   "/workspace"
+  ],
+  "returncode": 1,
+  "output_file_written": true,
+  "stderr_tail": "Scanning dir /workspace\nScanned /workspace/requirements.txt file and found 2 packages"
+ },
+ "clean": {
+  "command": [
+   "osv-scanner",
+   "--format",
+   "json",
+   "--output",
+   "<output-file>",
+   "--recursive",
+   "/srv/secureobs-fixtures/clean"
+  ],
+  "returncode": 0,
+  "output_file_written": true,
+  "stderr_tail": "Scanning dir /srv/secureobs-fixtures/clean\nScanned /srv/secureobs-fixtures/clean/web/package-lock.json file and found 1 package"
+ },
+ "no-manifests": {
+  "command": [
+   "osv-scanner",
+   "--format",
+   "json",
+   "--output",
+   "<output-file>",
+   "--recursive",
+   "/srv/secureobs-fixtures/no-manifests"
+  ],
+  "returncode": 128,
+  "output_file_written": false,
+  "stderr_tail": "Scanning dir /srv/secureobs-fixtures/no-manifests\nNo package sources found, --help for usage information."
+ },
+ "malformed-lockfile": {
+  "command": [
+   "osv-scanner",
+   "--format",
+   "json",
+   "--output",
+   "<output-file>",
+   "--recursive",
+   "/srv/secureobs-fixtures/malformed"
+  ],
+  "returncode": 128,
+  "output_file_written": false,
+  "stderr_tail": "Scanning dir /srv/secureobs-fixtures/malformed\nAttempted to scan lockfile but failed: /srv/secureobs-fixtures/malformed/web/package-lock.json\nNo package sources found, --help for usage information."
+ }
+}

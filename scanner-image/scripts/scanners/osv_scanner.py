@@ -1,99 +1,45 @@
-"""OSV-Scanner -> universal findings."""
+"""OSV-Scanner (v1.x) -> universal findings.
+
+Verified against osv-scanner v1.9.2 (the version pinned in the Dockerfile) with
+the captured fixtures under ``tests/fixtures/osv-1.9.2``:
+
+* JSON nests advisories per package: ``results[].packages[].vulnerabilities``.
+  ``results[].packages[].groups`` lists which advisories are aliases of each
+  other (with OSV-Scanner's own ``max_severity`` CVSS score), so one finding is
+  emitted per *group*, not per raw advisory record.
+* ``severity[].score`` is a CVSS *vector string*, not a number — the numeric
+  score comes from ``groups[].max_severity``.
+* ``osv-scanner scan <dir>`` exists in v1.9.2 but is NOT recursive; the
+  top-level ``--recursive`` form is the one that finds nested lockfiles.
+* Exit codes: 0 clean, 1 vulnerabilities found, 128 no package sources found
+  (also when the only lockfile fails to parse), anything else is a failure
+  (e.g. 129 when api.osv.dev is unreachable).
+"""
 from __future__ import annotations
 
-import base64
-import hashlib
-import json
 import logging
-import os
+import re
 import subprocess
+from typing import Any
 
+from . import evidence, sca, tool_output
 from .base import ScanResult
 
 log = logging.getLogger(__name__)
 
 _OUTPUT_FILE = "/tmp/osv-results.json"
+_NO_SOURCES_EXIT = 128
+# v1.9.2 exits 129 when a call to api.osv.dev fails (observed: proxy 403, no network).
+_API_FAILURE_EXIT = 129
+_PARSE_FAILURE_RE = re.compile(r"Attempted to scan lockfile but failed: (.+)$")
+_SCANNED_RE = re.compile(r"^Scanned (.+) file and found \d+ packages?$")
+
+NO_SOURCES_REASON = "no_supported_manifests"
+NO_SOURCES_WARNING = "No supported dependency manifest or lockfile was found."
 
 
-def _fp(*parts: str) -> str:
-    s = "|".join(str(p or "") for p in parts).encode()
-    return base64.b64encode(hashlib.sha256(s).digest()).decode().strip()
-
-
-def _severity_from_vuln(vuln: dict) -> str:
-    sv = vuln.get("severity")
-    if isinstance(sv, list) and sv:
-        first = sv[0]
-        score = str(first.get("score") or "")
-        if "/" in score:
-            try:
-                rhs = float(score.split("/")[-1])
-                lhs = float(score.split("/")[0])
-                if rhs > 0:
-                    cvss = lhs / rhs * 10
-                    if cvss >= 9:   return "CRITICAL"
-                    if cvss >= 7:   return "HIGH"
-                    if cvss >= 4:   return "MEDIUM"
-                    return "LOW"
-            except (ValueError, ZeroDivisionError):
-                pass
-        txt = str(score).upper()
-        for tag in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-            if tag in txt:
-                return tag
-        if "7." in score:
-            return "HIGH"
-    return "MEDIUM"
-
-
-def _try_invoke(source_dir: str) -> tuple[bool, str]:
-    """
-    Run OSV-Scanner, writing JSON output to _OUTPUT_FILE.
-    Returns (success, stderr).
-
-    Exit codes per OSV-Scanner contract:
-      0 = scan completed, no vulnerabilities
-      1 = scan completed, vulnerabilities found
-    Any other exit code is a real failure — do not mask it.
-
-    Lockfile parse warnings (e.g. 'Attempted to scan lockfile but failed')
-    come on stderr. They are logged at WARNING but do not abort the scan;
-    findings from other lockfiles in the same run are still valid.
-    """
-    candidates = [
-        # v2.x syntax (try first — newer installs)
-        ["osv-scanner", "scan", "--format", "json",
-         "--output", _OUTPUT_FILE, source_dir],
-        # v1.x syntax
-        ["osv-scanner", "--format", "json",
-         "--output", _OUTPUT_FILE, "--recursive", source_dir],
-    ]
-
-    for cmd in candidates:
-        # Clean up any leftover output file from a previous attempt.
-        try:
-            os.remove(_OUTPUT_FILE)
-        except FileNotFoundError:
-            pass
-
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        stderr = (proc.stderr or "").strip()
-
-        log.debug("osv-scanner %s -> rc=%d", " ".join(cmd[1:3]), proc.returncode)
-
-        # Surface lockfile parse warnings without aborting.
-        if stderr:
-            for line in stderr.splitlines():
-                if "failed" in line.lower() or "error" in line.lower() or "warn" in line.lower():
-                    log.warning("osv-scanner: %s", line)
-
-        if proc.returncode in (0, 1):
-            return True, stderr
-
-        # Non 0/1 exit — this command variant didn't work, try the next.
-        log.debug("osv-scanner exited %d; trying next command variant", proc.returncode)
-
-    return False, stderr  # type: ignore[possibly-undefined]
+def build_command(source_dir: str, output_path: str = _OUTPUT_FILE) -> list[str]:
+    return ["osv-scanner", "--format", "json", "--output", output_path, "--recursive", source_dir]
 
 
 def run(
@@ -104,68 +50,204 @@ def run(
 ) -> ScanResult:
     del config
     log.info("Running OSV-Scanner on %s", source_dir)
-
-    success, stderr = _try_invoke(source_dir)
-
-    if not success:
-        # Both CLI syntax variants failed with an exit code outside {0, 1} —
-        # osv-scanner itself couldn't run, an operational failure (as the
-        # docstring above already says: "do not mask it"). Raise so cli.py's
-        # exception handler marks this scanner's status as "error" (not
-        # "skipped") and continues on to the remaining scanners.
-        raise RuntimeError(f"osv-scanner invocation failed: {stderr[-500:]}")
-
-    if not os.path.isfile(_OUTPUT_FILE):
-        log.info("OSV-Scanner produced no output file — no supported lockfiles found.")
-        return ScanResult(findings=[])
+    tool_output.remove_stale(_OUTPUT_FILE)
 
     try:
-        with open(_OUTPUT_FILE) as fh:
-            data = json.load(fh)
-    except (json.JSONDecodeError, OSError) as exc:
-        # osv-scanner ran but produced untrustworthy output — also an
-        # operational failure, not a legitimate skip.
-        raise RuntimeError(f"osv-scanner output file could not be parsed: {exc}") from exc
+        proc = subprocess.run(
+            build_command(source_dir), capture_output=True, text=True,
+            timeout=tool_output.TOOL_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"osv-scanner exceeded the {tool_output.TOOL_TIMEOUT_SECONDS}-second limit") from exc
+
+    return interpret(proc.returncode, proc.stderr or "", _OUTPUT_FILE,
+                     source_dir, project_id, pipeline_run_id)
+
+
+def interpret(returncode: int, stderr: str, output_path: str, source_dir: str,
+              project_id: str, pipeline_run_id: str) -> ScanResult:
+    """Turn one osv-scanner invocation into a ScanResult (separated for tests)."""
+    unparsed = _unparsed_lockfiles(stderr, source_dir)
+    scanned = _scanned_sources(stderr)
+
+    if returncode == _NO_SOURCES_EXIT:
+        if unparsed:
+            # The only lockfiles present could not be parsed: nothing was
+            # analysed, and that is a failure the user must see — not "clean".
+            raise RuntimeError(
+                "osv-scanner could not parse any lockfile: " + ", ".join(unparsed[:5]))
+        log.warning("osv-scanner: %s", NO_SOURCES_WARNING)
+        return ScanResult(skipped=True, skip_reason=NO_SOURCES_REASON, not_applicable=True,
+                          sources_analyzed=0, warnings=[NO_SOURCES_WARNING])
+
+    if returncode == _API_FAILURE_EXIT:
+        raise RuntimeError(
+            f"osv-scanner could not query the OSV vulnerability API (exit {returncode}; check "
+            f"outbound HTTPS to api.osv.dev): {tool_output.stderr_tail(stderr)}")
+    if returncode not in (0, 1):
+        raise RuntimeError(
+            f"osv-scanner exited with unexpected code {returncode}: "
+            f"{tool_output.stderr_tail(stderr)}")
+
+    data = tool_output.load_json_output(output_path, "osv-scanner")
+    result = parse_report(data, source_dir, project_id, pipeline_run_id)
+    if scanned:
+        result.sources_analyzed = max(result.sources_analyzed or 0, len(scanned))
+    if unparsed:
+        warning = (f"{len(unparsed)} lockfile(s) could not be parsed and were skipped: "
+                   + ", ".join(unparsed[:5]))
+        log.warning("osv-scanner: %s", warning)
+        result.warnings.append(warning)
+    return result
+
+
+def _unparsed_lockfiles(stderr: str, source_dir: str) -> list[str]:
+    out = []
+    for line in stderr.splitlines():
+        match = _PARSE_FAILURE_RE.search(line.strip())
+        if match:
+            rel = evidence.relative_path(match.group(1), source_dir)
+            if rel and rel not in out:
+                out.append(rel)
+    return out
+
+
+def _scanned_sources(stderr: str) -> list[str]:
+    return [m.group(1) for m in (_SCANNED_RE.match(ln.strip()) for ln in stderr.splitlines()) if m]
+
+
+def parse_report(data: Any, source_dir: str, project_id: str, pipeline_run_id: str) -> ScanResult:
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        raise tool_output.ToolOutputError("osv-scanner output has no 'results' list")
 
     findings: list[dict] = []
-    for block in data.get("results") or []:
-        src = block.get("source") or {}
-        path = src.get("path") or ""
-        for vuln in block.get("vulnerabilities") or []:
-            vid = vuln.get("id") or "OSV"
-            sev = _severity_from_vuln(vuln)
-            summary = vuln.get("details") or vuln.get("summary") or vid
-
-            fingerprint = _fp("osv-scanner", vid, path, summary[:200])
-
-            pkg_bits = []
-            for pkg_entry in block.get("packages") or []:
-                pkg = pkg_entry.get("package") or {}
-                if pkg.get("name"):
-                    pkg_bits.append(f"{pkg.get('name')}@{pkg.get('version', '')}")
-
-            desc = summary
-            if pkg_bits:
-                desc = f"{summary}\nAffected: {', '.join(pkg_bits)}"
-
-            findings.append(
-                {
-                    "scanner": "osv-scanner",
-                    "ruleId": vid,
-                    "filePath": path or None,
-                    "codeSnippet": None,
-                    "severity": sev,
-                    "description": desc[:16_000],
-                    "cweIds": None,
-                    "owaspCategories": None,
-                    "startLine": None,
-                    "endLine": None,
-                    "projectId": project_id,
-                    "pipelineRunId": pipeline_run_id,
-                    "fingerprint": fingerprint,
-                    "rawPayload": json.dumps(vuln, separators=(",", ":"))[:80_000],
-                }
-            )
+    for block in data["results"]:
+        if not isinstance(block, dict):
+            continue
+        source = block.get("source") or {}
+        manifest = evidence.relative_path(source.get("path"), source_dir)
+        for pkg_entry in block.get("packages") or []:
+            if isinstance(pkg_entry, dict):
+                findings.extend(_package_findings(pkg_entry, manifest, project_id, pipeline_run_id))
 
     log.info("OSV-Scanner produced %d finding row(s)", len(findings))
-    return ScanResult(findings=findings)
+    return ScanResult(findings=findings, sources_analyzed=len(data["results"]))
+
+
+def _groups(pkg_entry: dict) -> list[dict]:
+    """Alias groups for a package; one synthetic group per advisory if absent."""
+    vulns = [v for v in pkg_entry.get("vulnerabilities") or [] if isinstance(v, dict) and v.get("id")]
+    groups = [g for g in pkg_entry.get("groups") or [] if isinstance(g, dict) and g.get("ids")]
+    covered = {i for g in groups for i in g.get("ids") or []}
+    for v in vulns:
+        if v["id"] not in covered:
+            groups.append({"ids": [v["id"]], "aliases": v.get("aliases") or []})
+    return groups
+
+
+def _fixed_versions(vulns: list[dict], ecosystem: str | None, name: str) -> tuple[list[str], bool]:
+    fixed: list[str] = []
+    has_ranges = False
+    for v in vulns:
+        for affected in v.get("affected") or []:
+            if not isinstance(affected, dict):
+                continue
+            apkg = affected.get("package") or {}
+            if apkg.get("name") and sca.normalize_name(ecosystem, str(apkg.get("name"))) != \
+                    sca.normalize_name(ecosystem, name):
+                continue
+            for rng in affected.get("ranges") or []:
+                has_ranges = True
+                for event in (rng or {}).get("events") or []:
+                    if isinstance(event, dict) and event.get("fixed"):
+                        fixed.append(str(event["fixed"]))
+    return fixed, has_ranges
+
+
+def _package_findings(pkg_entry: dict, manifest: str | None,
+                      project_id: str, pipeline_run_id: str) -> list[dict]:
+    pkg = pkg_entry.get("package") or {}
+    name = str(pkg.get("name") or "")
+    version = str(pkg.get("version") or "")
+    ecosystem = sca.normalize_ecosystem(pkg.get("ecosystem"))
+    scope = sca.scope_from_groups(pkg_entry.get("dependency_groups"))
+    by_id = {v["id"]: v for v in pkg_entry.get("vulnerabilities") or [] if isinstance(v, dict) and v.get("id")}
+
+    out: list[dict] = []
+    for group in _groups(pkg_entry):
+        ids = [i for i in (evidence.advisory_id(x) for x in group.get("ids") or []) if i]
+        vulns = [by_id[i] for i in group.get("ids") or [] if i in by_id]
+        if not ids:
+            continue
+        aliases = {a for a in (evidence.advisory_id(x) for x in group.get("aliases") or []) if a}
+        for v in vulns:
+            aliases.update(a for a in (evidence.advisory_id(x) for x in v.get("aliases") or []) if a)
+        aliases.update(ids)
+
+        key = sca.vulnerability_key(ids[0], sorted(aliases)) or ids[0]
+        primary = vulns[0] if vulns else {}
+        db_specific = primary.get("database_specific") or {}
+
+        score = None
+        try:
+            score = float(group.get("max_severity")) if group.get("max_severity") not in (None, "") else None
+        except (TypeError, ValueError):
+            score = None
+        severity = sca.severity_from_cvss(score)
+        severity_source = "osv-max-cvss" if severity else None
+        if severity is None:
+            severity = sca.normalize_severity(db_specific.get("severity"))
+            severity_source = "advisory" if severity else None
+        vector = next((s.get("score") for s in primary.get("severity") or []
+                       if isinstance(s, dict) and str(s.get("type", "")).startswith("CVSS")), None)
+
+        fixed_raw, has_ranges = _fixed_versions(vulns, ecosystem, name)
+        fixed = sca.upgrade_targets(version, fixed_raw)
+        fix_status = "fixed" if fixed else ("no_fix" if has_ranges else "unknown")
+
+        references = [evidence.advisory_url(r.get("url")) for r in primary.get("references") or []
+                      if isinstance(r, dict) and r.get("type") == "ADVISORY"]
+
+        record = sca.ScaRecord(
+            tool="osv-scanner",
+            ecosystem=ecosystem,
+            package_name=name,
+            installed_version=version,
+            manifest_path=manifest,
+            vulnerability_id=key,
+            aliases=sorted(aliases),
+            title=primary.get("summary"),
+            description=primary.get("details") or primary.get("summary"),
+            severity=severity,
+            severity_source=severity_source,
+            cvss_score=score if severity_source == "osv-max-cvss" else None,
+            cvss_vector=vector,
+            fixed_versions=fixed,
+            fix_status=fix_status,
+            purl=None,  # OSV v1 reports no versioned PURL; never synthesize one.
+            relationship=None,  # OSV v1 does not report direct vs transitive.
+            scope=scope,
+            cwe_ids=evidence.cwe_ids(db_specific.get("cwe_ids")),
+            references=[r for r in references if r],
+            published_at=primary.get("published"),
+        )
+        eco_key, name_key, version_key, manifest_key, vuln_key = record.identity()
+        out.append({
+            "scanner": "osv-scanner",
+            "ruleId": key,
+            "filePath": manifest,
+            "codeSnippet": None,
+            "severity": severity or "UNKNOWN",
+            "description": record.description_text(),
+            "cweIds": record.cwe_ids or None,
+            "owaspCategories": None,
+            "startLine": None,
+            "endLine": None,
+            "projectId": project_id,
+            "pipelineRunId": pipeline_run_id,
+            "fingerprint": sca.fingerprint("osv-scanner", "vuln", manifest_key, eco_key,
+                                           name_key, version_key, vuln_key),
+            "rawPayload": record.evidence_json(),
+        })
+    return out

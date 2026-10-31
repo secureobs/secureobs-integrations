@@ -1,0 +1,39 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Unknown Analyzer",
+          "version": "0.1"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "R1",
+          "message": {
+            "text": "Issue"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/a.cs"
+                },
+                "region": {
+                  "startLine": 3
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "R2",
+          "message": {
+            "text": "Issue 2"
+          }
+        }
+      ]
+    }
+  ]
+}

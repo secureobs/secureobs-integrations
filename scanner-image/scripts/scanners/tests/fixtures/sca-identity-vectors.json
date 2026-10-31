@@ -1,0 +1,48 @@
+{
+  "description": "Shared SCA identity vectors. Both scanners/sca.py (pytest) and SecureObs.Application ScaIdentity (xUnit) must produce `identity` for `input`. Pairs with the same `group` describe one dependency/advisory reported by different engines and must collide; different groups must not.",
+  "vectors": [
+    {"group": "pyyaml-cve-2020-14343", "engine": "trivy",
+     "input": {"ecosystem": "PyPI", "packageName": "PyYAML", "installedVersion": "5.3", "manifestPath": "requirements.txt", "vulnerabilityId": "CVE-2020-14343", "aliases": ["GHSA-8q59-q68h-6hv4"]},
+     "identity": ["pypi", "pyyaml", "5.3", "requirements.txt", "CVE-2020-14343"]},
+    {"group": "pyyaml-cve-2020-14343", "engine": "osv-scanner",
+     "input": {"ecosystem": "PyPI", "packageName": "pyyaml", "installedVersion": "5.3", "manifestPath": "requirements.txt", "vulnerabilityId": "GHSA-8q59-q68h-6hv4", "aliases": ["CVE-2020-14343", "PYSEC-2021-142"]},
+     "identity": ["pypi", "pyyaml", "5.3", "requirements.txt", "CVE-2020-14343"]},
+
+    {"group": "x-text-cve-2021-38561", "engine": "trivy",
+     "input": {"ecosystem": "Go", "packageName": "golang.org/x/text", "installedVersion": "v0.3.5", "manifestPath": "go-svc/go.mod", "vulnerabilityId": "CVE-2021-38561", "aliases": ["GHSA-ppp9-7jff-5vj2", "GO-2021-0113"]},
+     "identity": ["go", "golang.org/x/text", "0.3.5", "go-svc/go.mod", "CVE-2021-38561"]},
+    {"group": "x-text-cve-2021-38561", "engine": "osv-scanner",
+     "input": {"ecosystem": "Go", "packageName": "golang.org/x/text", "installedVersion": "0.3.5", "manifestPath": "go-svc/go.mod", "vulnerabilityId": "GO-2021-0113", "aliases": ["CVE-2021-38561", "GHSA-ppp9-7jff-5vj2"]},
+     "identity": ["go", "golang.org/x/text", "0.3.5", "go-svc/go.mod", "CVE-2021-38561"]},
+
+    {"group": "lodash-4.17.20-cve-2021-23337", "engine": "trivy",
+     "input": {"ecosystem": "npm", "packageName": "lodash", "installedVersion": "4.17.20", "manifestPath": "web/package-lock.json", "vulnerabilityId": "CVE-2021-23337", "aliases": ["GHSA-35jh-r3h4-6jhm"]},
+     "identity": ["npm", "lodash", "4.17.20", "web/package-lock.json", "CVE-2021-23337"]},
+    {"group": "lodash-4.17.20-cve-2021-23337", "engine": "osv-scanner",
+     "input": {"ecosystem": "npm", "packageName": "lodash", "installedVersion": "4.17.20", "manifestPath": "web/package-lock.json", "vulnerabilityId": "CVE-2021-23337", "aliases": ["CVE-2026-4800", "GHSA-35jh-r3h4-6jhm", "GHSA-r5fr-rjxr-66jc"]},
+     "identity": ["npm", "lodash", "4.17.20", "web/package-lock.json", "CVE-2021-23337"]},
+
+    {"group": "lodash-4.17.15-cve-2021-23337", "engine": "trivy",
+     "input": {"ecosystem": "npm", "packageName": "lodash", "installedVersion": "4.17.15", "manifestPath": "web/package-lock.json", "vulnerabilityId": "CVE-2021-23337", "aliases": ["GHSA-35jh-r3h4-6jhm"]},
+     "identity": ["npm", "lodash", "4.17.15", "web/package-lock.json", "CVE-2021-23337"]},
+
+    {"group": "lodash-4.17.20-other-lockfile", "engine": "trivy",
+     "input": {"ecosystem": "npm", "packageName": "lodash", "installedVersion": "4.17.20", "manifestPath": "admin/package-lock.json", "vulnerabilityId": "CVE-2021-23337", "aliases": []},
+     "identity": ["npm", "lodash", "4.17.20", "admin/package-lock.json", "CVE-2021-23337"]},
+
+    {"group": "newtonsoft-ghsa", "engine": "trivy",
+     "input": {"ecosystem": "NuGet", "packageName": "Newtonsoft.Json", "installedVersion": "12.0.1", "manifestPath": "src/Api/packages.lock.json", "vulnerabilityId": "CVE-2024-21907", "aliases": ["GHSA-5crp-9r3c-p9vr"]},
+     "identity": ["nuget", "newtonsoft.json", "12.0.1", "src/api/packages.lock.json", "CVE-2024-21907"]},
+    {"group": "newtonsoft-ghsa", "engine": "osv-scanner",
+     "input": {"ecosystem": "NuGet", "packageName": "Newtonsoft.Json", "installedVersion": "12.0.1", "manifestPath": "src/Api/packages.lock.json", "vulnerabilityId": "GHSA-5crp-9r3c-p9vr", "aliases": ["CVE-2024-21907"]},
+     "identity": ["nuget", "newtonsoft.json", "12.0.1", "src/api/packages.lock.json", "CVE-2024-21907"]},
+
+    {"group": "ghsa-only", "engine": "osv-scanner",
+     "input": {"ecosystem": "Maven", "packageName": "Org.Example:Lib", "installedVersion": "1.0", "manifestPath": "pom.xml", "vulnerabilityId": "GHSA-XXJR-MMJV-4GPG", "aliases": ["GHSA-f23m-r3pf-42rh"]},
+     "identity": ["maven", "org.example:lib", "1.0", "pom.xml", "GHSA-f23m-r3pf-42rh"]},
+
+    {"group": "pysec-only", "engine": "osv-scanner",
+     "input": {"ecosystem": "PyPI", "packageName": "Django_Rest.Framework", "installedVersion": "3.0", "manifestPath": "requirements.txt", "vulnerabilityId": "PYSEC-2021-9", "aliases": []},
+     "identity": ["pypi", "django-rest-framework", "3.0", "requirements.txt", "PYSEC-2021-9"]}
+  ]
+}

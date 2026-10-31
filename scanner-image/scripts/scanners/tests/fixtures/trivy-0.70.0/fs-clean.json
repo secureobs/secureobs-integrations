@@ -1,0 +1,33 @@
+{
+ "SchemaVersion": 2,
+ "Trivy": {
+  "Version": "0.70.0"
+ },
+ "ReportID": "01a13d3c-0c9a-7492-b3cd-5a6f2cc856f9",
+ "CreatedAt": "2026-10-15T01:45:07.99430091Z",
+ "ArtifactName": "/srv/secureobs-fixtures/clean",
+ "ArtifactType": "filesystem",
+ "Results": [
+  {
+   "Target": "web/package-lock.json",
+   "Class": "lang-pkgs",
+   "Type": "npm",
+   "Packages": [
+    {
+     "ID": "is-number@7.0.0",
+     "Name": "is-number",
+     "Identifier": {
+      "PURL": "pkg:npm/is-number@7.0.0",
+      "UID": "fe6ce1bc580c74c5"
+     },
+     "Version": "7.0.0",
+     "Relationship": "direct",
+     "Locations": [
+      {}
+     ],
+     "AnalyzedBy": "npm"
+    }
+   ]
+  }
+ ]
+}

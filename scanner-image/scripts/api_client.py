@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Any
 
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -34,7 +35,44 @@ def _session(api_key: str) -> requests.Session:
     return s
 
 
-def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
+class ApiError(Exception):
+    """A SecureObs API call failed. ``transient`` marks network/5xx failures."""
+
+    def __init__(self, status: int | None, message: str, *, code: str | None = None,
+                 transient: bool = False) -> None:
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.transient = transient
+
+
+class ApiAuthError(ApiError):
+    """401 — the API key is missing, revoked, expired or malformed."""
+
+
+def _error_from_response(resp: requests.Response) -> ApiError:
+    code = None
+    try:
+        body = resp.json()
+        if isinstance(body, dict):
+            code = body.get("error") if isinstance(body.get("error"), str) else None
+            detail = body.get("message") or body.get("detail") or code or ""
+        else:
+            detail = ""
+    except ValueError:
+        detail = (resp.text or "")[:300]
+    message = f"API returned {resp.status_code}" + (f": {str(detail)[:300]}" if detail else "")
+    if resp.status_code == 401:
+        return ApiAuthError(401, _AUTH_FAILED_MSG, code=code)
+    return ApiError(resp.status_code, message, code=code, transient=resp.status_code >= 500)
+
+
+def post_findings_checked(api_url: str, api_key: str, path: str, payload: list) -> dict:
+    """Upload findings in bounded batches; raise ``ApiError`` on any failure.
+
+    Batches are idempotent on the server (fingerprint deduplication), so a run
+    interrupted after some batches can simply be retried.
+    """
     url = f"{api_url}/{path}"
     log.debug("POST %s (%d items)", url, len(payload))
     s = _session(api_key)
@@ -44,22 +82,34 @@ def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
         for item in payload
     ]
     ingested = 0
-    deduplicated = 0
+    deduplicated: int | None = None   # only when the API reports it; never assumed
     for batch in _finding_batches(enriched):
-        resp = s.post(url, json=batch, timeout=120, verify=True)
-        if resp.status_code == 401:
-            log.error(_AUTH_FAILED_MSG)
-            sys.exit(1)
+        try:
+            resp = s.post(url, json=batch, timeout=120, verify=True)
+        except requests.RequestException as exc:
+            raise ApiError(None, f"network error contacting SecureObs: {type(exc).__name__}",
+                           transient=True) from exc
         if not resp.ok:
-            log.error("API returned %s: %s", resp.status_code, resp.text)
-            sys.exit(2)
+            raise _error_from_response(resp)
         try:
             body = resp.json() if resp.content else {}
         except ValueError:
             body = {}
         ingested += int(body.get("ingested", len(batch)))
-        deduplicated += int(body.get("deduplicated", 0))
+        if isinstance(body, dict) and "deduplicated" in body:
+            deduplicated = (deduplicated or 0) + int(body["deduplicated"])
     return {"ingested": ingested, "deduplicated": deduplicated}
+
+
+def post_findings(api_url: str, api_key: str, path: str, payload: list) -> dict:
+    try:
+        return post_findings_checked(api_url, api_key, path, payload)
+    except ApiAuthError:
+        log.error(_AUTH_FAILED_MSG)
+        sys.exit(1)
+    except ApiError as exc:
+        log.error("%s", exc)
+        sys.exit(2)
 
 
 def _finding_batches(items: list) -> list[list]:
@@ -232,3 +282,93 @@ def get_active_scanners(
         return None
 
     return data
+
+
+def post_scan_executions_checked(
+    api_url: str, api_key: str, project_id: str, pipeline_run_id: str, executions: list[dict]
+) -> None:
+    """Report per-scanner execution outcomes; raise ``ApiError`` on failure."""
+    url = f"{api_url}/scan-executions"
+    payload = {
+        "projectId": project_id,
+        "pipelineRunId": pipeline_run_id,
+        "scannerImageVersion": SCANNER_IMAGE_VERSION,
+        "executions": executions,
+    }
+    try:
+        resp = _session(api_key).post(url, json=payload, timeout=30, verify=True)
+    except requests.RequestException as exc:
+        raise ApiError(None, f"network error ({type(exc).__name__})", transient=True) from exc
+    if resp.status_code == 404 and not _is_json_error(resp):
+        raise ApiError(404, "this SecureObs API does not accept execution status yet",
+                       code="endpoint_unavailable")
+    if not resp.ok:
+        raise _error_from_response(resp)
+
+
+def post_scan_executions(
+    api_url: str, api_key: str, project_id: str, pipeline_run_id: str, executions: list[dict]
+) -> bool:
+    """Best-effort wrapper: logs and returns False on failure.
+
+    The server-side gate treats a missing report as "not completed", so a lost
+    report can never turn a required-but-failed scanner into a pass.
+    """
+    if not executions:
+        return True
+    try:
+        post_scan_executions_checked(api_url, api_key, project_id, pipeline_run_id, executions)
+    except ApiError as exc:
+        log.warning("Scanner execution status was not recorded: %s", exc)
+        return False
+    return True
+
+
+def _is_json_error(resp: requests.Response) -> bool:
+    try:
+        body = resp.json()
+    except ValueError:
+        return False
+    return isinstance(body, dict) and isinstance(body.get("error"), str)
+
+
+def get_gate_decision(
+    api_url: str, api_key: str, project_id: str, pipeline_run_id: str
+) -> dict[str, Any] | None:
+    """Structured, project-scoped gate decision.
+
+    Returns ``None`` only when the API predates this endpoint (route not found),
+    so the caller can fall back to the legacy boolean gate. Every other failure
+    exits: 1 for auth/configuration problems, 2 for API/network errors — a gate
+    that cannot be evaluated never passes.
+    """
+    url = f"{api_url}/projects/{project_id}/gate"
+    log.debug(_LOG_GET, url)
+    try:
+        resp = _session(api_key).get(
+            url, params={"pipelineRunId": pipeline_run_id}, timeout=30, verify=True)
+    except requests.RequestException as exc:
+        log.error("Gate check failed: network error (%s).", type(exc).__name__)
+        sys.exit(2)
+    if resp.status_code == 401:
+        log.error(_AUTH_FAILED_MSG)
+        sys.exit(1)
+    if resp.status_code == 404:
+        if _is_json_error(resp):
+            log.error(
+                "Project %s was not found in the tenant tied to this API key. "
+                "Double-check --project-id and the key's project scope.", project_id)
+            sys.exit(1)
+        return None
+    if not resp.ok:
+        log.error("Gate check failed: %s", _error_from_response(resp))
+        sys.exit(2)
+    try:
+        body = resp.json()
+    except ValueError:
+        log.error("Gate check returned a non-JSON response.")
+        sys.exit(2)
+    if not isinstance(body, dict) or "outcome" not in body:
+        log.error("Gate check returned an unexpected response shape.")
+        sys.exit(2)
+    return body

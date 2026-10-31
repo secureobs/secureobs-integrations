@@ -1,0 +1,10 @@
+{
+ "SchemaVersion": 2,
+ "Trivy": {
+  "Version": "0.70.0"
+ },
+ "ReportID": "01a13d3c-11ce-71db-ab74-6af47b453e45",
+ "CreatedAt": "2026-10-15T01:45:09.326124756Z",
+ "ArtifactName": "/srv/secureobs-fixtures/no-manifests",
+ "ArtifactType": "filesystem"
+}

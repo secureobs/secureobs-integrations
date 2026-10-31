@@ -11,6 +11,9 @@ ARG GITLEAKS_VERSION=8.21.2
 # Pinned Python tool versions. Bumping any of these REQUIRES updating the
 # matching SHA below if we move to hash-pinned installs.
 ARG SEMGREP_VERSION=1.92.0
+# Semgrep 1.92's OpenTelemetry dependency imports pkg_resources at runtime.
+# Python 3.12 no longer seeds setuptools; newer setuptools removes that API.
+ARG SETUPTOOLS_VERSION=80.9.0
 ARG REQUESTS_VERSION=2.32.3
 ARG BANDIT_VERSION=1.7.10
 ARG CHECKOV_VERSION=3.2.343
@@ -64,7 +67,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         "python-hcl2==${PYTHON_HCL2_VERSION}" \
         "requests==${REQUESTS_VERSION}" \
         "semgrep==${SEMGREP_VERSION}" \
+        "setuptools==${SETUPTOOLS_VERSION}" \
         "urllib3==${URLLIB3_VERSION}" \
+    && pysemgrep --version \
     && wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
     && echo "${GITLEAKS_SHA256}  gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | sha256sum -c - \
     && tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks \
@@ -89,5 +94,9 @@ ENV NODE_PATH=/usr/local/lib/node_modules
 
 WORKDIR /workspace
 COPY scripts/ /scripts/
+
+# Check the installed executable, not a mocked driver: its launcher can return
+# zero even when Python fails to import a runtime dependency.
+RUN python3 /scripts/smoke_semgrep.py
 
 ENTRYPOINT ["python3", "/scripts/cli.py"]

@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "ExampleIAST Agent",
+          "semanticVersion": "4.2.0",
+          "informationUri": "https://iast.example.com/agent",
+          "rules": [
+            {
+              "id": "sql-injection",
+              "name": "SqlInjection",
+              "shortDescription": {
+                "text": "SQL injection"
+              },
+              "fullDescription": {
+                "text": "Untrusted request data reached a SQL query without parameterization."
+              },
+              "help": {
+                "text": "Use parameterized queries (e.g. SqlParameter or an ORM) instead of building SQL from request data.",
+                "markdown": "<img src=x onerror=alert(1)> Use **parameterized** queries."
+              },
+              "helpUri": "https://iast.example.com/rules/sql-injection?utm_source=report#top",
+              "properties": {
+                "security-severity": "9.1",
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-89"
+                ]
+              }
+            },
+            {
+              "id": "reflected-xss",
+              "name": "ReflectedXss",
+              "shortDescription": {
+                "text": "Reflected cross-site scripting"
+              },
+              "help": {
+                "text": "Encode untrusted data for the HTML context before rendering it."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "relationships": [
+                {
+                  "target": {
+                    "id": "79",
+                    "toolComponent": {
+                      "name": "CWE"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "weak-hash",
+              "name": "WeakHashAlgorithm",
+              "shortDescription": {
+                "text": "Weak hash algorithm"
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              }
+            }
+          ]
+        }
+      },
+      "automationDetails": {
+        "id": "nightly-integration-tests/2026-10-14"
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ],
+      "webRequests": [
+        {
+          "protocol": "HTTP",
+          "version": "1.1",
+          "method": "GET",
+          "target": "https://shop.test.internal:8443/api/orders/9817/items?view=full"
+        }
+      ],
+      "results": [
+        {
+          "ruleId": "sql-injection",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Request parameter 'id' flowed into SqlCommand.ExecuteReader without parameterization."
+          },
+          "correlationGuid": "6f1c2a8e-3b9d-4e7f-a1c2-0d9e8f7a6b5c",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///app/src/Orders/OrderRepository.cs"
+                },
+                "region": {
+                  "startLine": 57,
+                  "endLine": 59
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "Shop.Orders.OrderRepository.FindById"
+                }
+              ]
+            }
+          ],
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "kinds": [
+                        "source"
+                      ],
+                      "location": {
+                        "message": {
+                          "text": "Untrusted input: route value 'id'"
+                        },
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/Orders/OrdersController.cs"
+                          },
+                          "region": {
+                            "startLine": 22
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "logicalLocations": [
+                          {
+                            "fullyQualifiedName": "Shop.Orders.OrderService.Get"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "kinds": [
+                        "sink"
+                      ],
+                      "location": {
+                        "message": {
+                          "text": "SQL executed: SELECT * FROM Orders WHERE Id = 9817"
+                        },
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/Orders/OrderRepository.cs"
+                          },
+                          "region": {
+                            "startLine": 58
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "webRequest": {
+            "protocol": "HTTP",
+            "version": "1.1",
+            "method": "POST",
+            "target": "https://shop.test.internal/api/users/42/orders/5f0e7c1a-9d2b-4c3e-8f1a-2b3c4d5e6f70?page=2&sort=desc#frag",
+            "headers": {
+              "X-Request-Id": "req-0001",
+              "Accept": "application/json"
+            },
+            "body": {
+              "text": "{\"quantity\": 2}"
+            },
+            "parameters": {
+              "page": "2"
+            }
+          },
+          "webResponse": {
+            "statusCode": 200,
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "text": "{\"ok\":true}"
+            }
+          },
+          "provenance": {
+            "firstDetectionTimeUtc": "2026-10-13T08:00:00Z",
+            "lastDetectionTimeUtc": "2026-10-14T02:15:30.123Z"
+          }
+        },
+        {
+          "ruleId": "reflected-xss",
+          "message": {
+            "text": "Parameter 'q' was rendered into HTML without encoding."
+          },
+          "partialFingerprints": {
+            "routeHash/v1": "a1b2c3d4e5f60718"
+          },
+          "webRequest": {
+            "index": 0
+          }
+        },
+        {
+          "ruleId": "weak-hash",
+          "message": {
+            "text": "MD5 used to hash a value."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Util/Hashing.cs"
+                },
+                "region": {
+                  "startLine": 12
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "reflected-xss",
+          "kind": "pass",
+          "message": {
+            "text": "Encoding verified on /api/search."
+          },
+          "webRequest": {
+            "method": "GET",
+            "target": "/api/search"
+          }
+        }
+      ]
+    }
+  ]
+}

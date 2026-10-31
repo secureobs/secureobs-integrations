@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## v1.4.2 — 2026-10-30
+
+**Fix (IAST import):** Enforce an explicit 128-level JSON nesting limit before decoding SARIF reports, including on Python versions that accept extremely deep JSON without a recursion error.
+
+**Fix (Semgrep):** Install the runtime compatibility dependency required by Semgrep 1.92, validate its executable with an offline known-match scan during image builds, and treat missing or invalid reports as scanner failures. Each run uses an isolated report path and a bounded timeout.
+
+**Feature (SCA, ships as v1.4.x):** OSV-Scanner v1.9.2 output (`results[].packages[].vulnerabilities`) is now parsed correctly, one finding per advisory alias group. Trivy and OSV-Scanner findings carry the same dependency identity (ecosystem, normalized name, version, manifest, lowest CVE/GHSA), so the API merges them into one finding detected by both engines. Each SCA finding includes structured evidence: installed and fixed versions, advisory ID and aliases, severity source, manifest path, package URL, and direct/transitive when the engine reports it. "No supported manifests" (not applicable), "completed with no findings" and "failed" are now distinct outcomes; an unparseable lockfile or an unreachable OSV API is a failure, never a clean result. Trivy secrets and misconfigurations stay separate findings with sanitized evidence.
+
+**Feature (run status):** `scan` reports each scanner's status (running, completed, completed with no findings, not applicable, failed) for the pipeline run, and the run summary names failed scanners. Tool failures are logged with their reason instead of a traceback.
+
+**Feature (gate):** `gate` uses the new structured decision and prints its reasons and every scanner's status. Exit `3` (blocking findings) is unchanged. New exit `4` means a check the project explicitly requires did not complete (opt-in: *require every enabled scanner to complete*, *require an IAST report*). Against an older API the gate falls back to the previous check.
+
+**Feature (IAST import):** new `import-iast` subcommand imports a SARIF 2.1.0 report from **your own** IAST agent (`--provider sarif`, the supported generic path; `--provider contrast`, unverified). Reports from static/dependency/DAST tools, without runtime evidence, or for the wrong provider are rejected (exit `6`); a missing report exits `5`. Messages are redacted; headers, cookies, bodies and parameters are never read; the request target is reduced to a templated path (scheme, host, credentials, query and fragment discarded). Refused for fork pull requests it can detect (`SYSTEM_PULLREQUEST_ISFORK`, or a GitHub event payload mounted via `GITHUB_EVENT_PATH`); this is defense in depth — the CI job must keep secrets away from fork builds. Idempotent. Requires the Pro plan and the IAST integration enabled for the project.
+
+**Feature (SBOM):** `scan --sbom-output <path>` writes a CycloneDX 1.6 inventory (Trivy) that stays in the CI job.
+
+**Fix:** the scan summary no longer prints an invented "new after dedup" count; it appears only when the API reports one.
+
 **Feature (inline PR comments):** `pr-comment` now annotates pull requests **inline on the exact file and line** of high-signal findings (blocking + CRITICAL/HIGH), in addition to the existing upserted summary comment. The scanner fetches a slim, PR-safe finding list for the run (`GET /api/findings/by-run` — never includes code snippets or raw payloads, so a leaked secret can't be echoed into a PR), reads the PR diff, and only comments on lines the PR actually changed (findings on unchanged code are tallied in the summary). Works on both GitHub Actions (review comments via the built-in `GITHUB_TOKEN` + `pull-requests: write` — no customer setup) and Azure DevOps (PR threads with file/line `threadContext`; the build service needs *Contribute to pull requests*). Prior SecureObs inline comments are removed before re-posting so re-runs don't stack duplicates. Inline decoration is fully best-effort — any failure falls back to the summary comment and never breaks the pipeline. Capped at 50 inline comments per run.
 
 **Feature (two IaC fidelity modes):** Terraform analysis now always runs Checkov. Static mode scans the selected Terraform root and then builds a credential-free HCL topology. Plan mode scans the Terraform plan with source enrichment and Checkov deep analysis before uploading the sanitized plan topology. Generated GitHub workflows use customer-owned OIDC and generated Azure DevOps pipelines use customer-owned service connections; SecureObs never receives cloud credentials. Generated IaC workflows use `--iac-only` so they do not repeat unrelated whole-repository SAST/SCA scans for every Terraform root. Checkov raw payloads are reduced to safe rule/resource/location metadata and never include source code blocks or evaluated values.

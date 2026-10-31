@@ -1,14 +1,12 @@
-import json
 import logging
 import os
 import subprocess
+import tempfile
 
 from .base import ScanResult
+from . import tool_output
 
 log = logging.getLogger(__name__)
-
-_RESULTS_FILE = "/tmp/secureobs-semgrep.json"
-
 
 def run(
     source_dir: str,
@@ -25,35 +23,43 @@ def run(
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
 
-    proc = subprocess.run(
-        ["semgrep", "scan", "--config", "p/ci", "--json", "--output", _RESULTS_FILE, source_dir],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        env=env,
-    )
+    # A report belongs to one invocation. A fixed /tmp filename can retain a
+    # previous run's results, or be overwritten by another concurrent scan.
+    with tempfile.TemporaryDirectory(prefix="secureobs-semgrep-") as output_dir:
+        output_path = os.path.join(output_dir, "results.json")
+        try:
+            proc = subprocess.run(
+                ["semgrep", "scan", "--config", "p/ci", "--json", "--output", output_path, source_dir],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                env=env,
+                timeout=tool_output.TOOL_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"semgrep exceeded the {tool_output.TOOL_TIMEOUT_SECONDS}-second limit"
+            ) from exc
 
-    # semgrep exits 0 (clean) or 1 (findings found) — both are success.
-    # Any other code means Semgrep itself couldn't run — an operational
-    # failure. Previously this called sys.exit(2), which raises SystemExit
-    # (a BaseException) and isn't caught by cli.py's `except Exception:`
-    # handler — that silently killed the entire `scan` subcommand, skipping
-    # every remaining scanner. Raise a plain exception instead so cli.py's
-    # existing handler marks semgrep's status as "error" and continues on.
-    if proc.returncode not in (0, 1):
-        stderr_tail = (proc.stderr or "")[:500]
-        raise RuntimeError(
-            f"semgrep exited with unexpected code {proc.returncode}: {stderr_tail}"
-        )
+        if proc.returncode not in (0, 1):
+            raise RuntimeError(
+                f"semgrep exited with unexpected code {proc.returncode}: "
+                f"{tool_output.stderr_tail(proc.stderr)}"
+            )
 
-    if not os.path.exists(_RESULTS_FILE):
-        log.info("Semgrep produced no results file — treating as clean.")
-        return ScanResult(skipped=True, skip_reason="no results file")
+        try:
+            data = tool_output.load_json_output(output_path, "semgrep")
+        except tool_output.ToolOutputError as exc:
+            # A zero process exit is insufficient: the observed release exited
+            # zero without a report. Preserve the diagnostic and report failure,
+            # so scan-execution status and an opted-in gate cannot call it clean.
+            raise tool_output.ToolOutputError(
+                f"{exc}. stderr: {tool_output.stderr_tail(proc.stderr) or '(none)'}"
+            ) from exc
 
-    with open(_RESULTS_FILE, encoding="utf-8") as f:
-        data = json.load(f)
-
-    raw_results = data.get("results", [])
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        raise tool_output.ToolOutputError("semgrep output must contain a results list")
+    raw_results = data["results"]
     log.info("Semgrep found %d raw result(s)", len(raw_results))
 
     findings = []

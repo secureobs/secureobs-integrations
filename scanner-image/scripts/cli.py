@@ -4,28 +4,22 @@ import logging
 import os
 import sys
 import uuid
-from dataclasses import dataclass, field
 from typing import Optional
 
 import config
 import api_client
 import build_gate as gate_module
+import execution
+from iast import command as iast_command
+from iast import providers as iast_providers
+from iast import sarif as iast_sarif
+from scanners import sbom
 from scanners.registry import DEFAULT_KEYS, REGISTRY
 from pr_comments import azuredevops, github
 from infrastructure import terraform_plan as iac_plan
 from infrastructure import terraform_config as iac_config
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class _ScanRow:
-    key: str
-    status: str = "ok"          # ok | skipped | error | unknown
-    findings: int = 0
-    ingested: int = 0
-    new_after_dedup: int = 0
-    skip_reason: Optional[str] = None
 
 
 _WORKSPACE = "/workspace"
@@ -50,6 +44,29 @@ def _resolve_workspace_file(relative_path: Optional[str]) -> str:
         raise SystemExit(
             f"--terraform-plan-json resolves outside the workspace: {relative_path!r}")
     return candidate
+
+
+_OUTPUT_ROOTS = (_WORKSPACE, "/output")
+
+
+def _resolve_output_file(value: Optional[str], flag: str) -> str:
+    """Resolve a file the scanner writes (e.g. the SBOM).
+
+    Relative paths land under /workspace; absolute paths must stay inside
+    /workspace or /output (mount a writable directory there when the workspace
+    is mounted read-only). Anything else is refused before a byte is written.
+    """
+    raw = (value or "").strip()
+    if not raw:
+        raise SystemExit(f"{flag} must not be empty")
+    candidate = raw if os.path.isabs(raw) else os.path.join(_WORKSPACE, raw)
+    candidate = os.path.realpath(candidate)
+    for root in _OUTPUT_ROOTS:
+        base = os.path.realpath(root)
+        if candidate.startswith(base + os.sep):
+            os.makedirs(os.path.dirname(candidate), exist_ok=True)
+            return candidate
+    raise SystemExit(f"{flag} must point inside /workspace or /output (got {value!r})")
 
 
 def _terraform_root_id(value: str) -> str:
@@ -173,43 +190,6 @@ def _resolve_active_scanners(
     return active
 
 
-def _print_scan_summary(rows: list[_ScanRow]) -> None:
-    """Print a formatted per-scanner summary table to the log."""
-    if not rows:
-        return
-
-    col_w = max(len(r.key) for r in rows) + 2
-    sep = "─" * (col_w + 36)
-
-    lines = [f"\n{sep}"]
-    for r in rows:
-        label = r.key.ljust(col_w)
-        if r.status == "skipped":
-            reason = r.skip_reason or "no_reason"
-            lines.append(f"  {label}SKIPPED  ({reason})")
-        elif r.status == "error":
-            lines.append(f"  {label}ERROR    (see above)")
-        elif r.status == "unknown":
-            lines.append(f"  {label}UNKNOWN  (driver not in catalog)")
-        else:
-            if r.findings == 0:
-                lines.append(f"  {label}0 findings")
-            else:
-                lines.append(
-                    f"  {label}{r.findings} finding(s)  "
-                    f"({r.new_after_dedup} new after dedup)"
-                )
-
-    total_findings = sum(r.findings for r in rows)
-    total_new = sum(r.new_after_dedup for r in rows)
-    lines.append(sep)
-    total_label = "Total".ljust(col_w)
-    lines.append(f"  {total_label}{total_findings} finding(s)  ({total_new} new after dedup)")
-    lines.append(sep)
-
-    log.info("\n".join(lines))
-
-
 def cmd_scan(args: argparse.Namespace) -> None:
     api_url = config.get_api_url()
     api_key = config.require_env("SECUREOBS_API_KEY")
@@ -253,8 +233,13 @@ def cmd_scan(args: argparse.Namespace) -> None:
         enabled_keys = [str(entry.get("key", "?")) for entry in active]
         log.info("Active scanners for this run: %s", ", ".join(enabled_keys))
 
-        summary_rows: list[_ScanRow] = []
+        executions: list[execution.Execution] = []
         iac_checkov_failed = False
+        # Mark every active scanner as running first, so a scan that dies midway
+        # leaves "running" (never "completed") behind for the gate to see.
+        api_client.post_scan_executions(
+            api_url, api_key, args.project_id, args.pipeline_run_id,
+            [execution.running(e["key"]).to_api() for e in active if isinstance(e.get("key"), str)])
 
         for entry in active:
             key = entry.get("key")
@@ -272,7 +257,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
                     "image — pin to a newer tag once the driver ships.)",
                     key,
                 )
-                summary_rows.append(_ScanRow(key=key, status="unknown"))
+                executions.append(execution.driver_unavailable(key))
                 continue
 
             try:
@@ -285,17 +270,26 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 result = driver.runner(
                     _WORKSPACE, args.project_id, args.pipeline_run_id, cfg
                 )
-            except Exception:
+            except RuntimeError as exc:
+                # Drivers raise RuntimeError for operational tool failures (bad exit code,
+                # timeout, unreadable output): report the reason, not a traceback.
+                log.error("Scanner '%s' failed: %s — continuing with the remaining scanners.", key, exc)
+                executions.append(execution.from_exception(key, exc))
+                if key == "checkov" and (plan_path or terraform_root is not None):
+                    iac_checkov_failed = True
+                continue
+            except Exception as exc:
                 log.exception(
                     "Scanner '%s' raised an unexpected error; continuing with the "
                     "remaining scanners.",
                     key,
                 )
-                summary_rows.append(_ScanRow(key=key, status="error"))
+                executions.append(execution.from_exception(key, exc))
                 if key == "checkov" and (plan_path or terraform_root is not None):
                     iac_checkov_failed = True
                 continue
 
+            row = execution.from_result(key, result)
             if result.skipped:
                 reason = result.skip_reason or "(no reason given)"
                 if result.exit_code is not None:
@@ -306,34 +300,37 @@ def cmd_scan(args: argparse.Namespace) -> None:
                         reason,
                         result.stderr_tail or "(none)",
                     )
+                elif result.not_applicable:
+                    log.info("%s: not applicable (%s).", key, reason)
                 else:
-                    log.info("%s skipped: %s", key, reason)
-                summary_rows.append(_ScanRow(key=key, status="skipped", skip_reason=reason))
+                    log.error("%s did not complete: %s", key, reason)
+                executions.append(row)
                 if key == "checkov" and (plan_path or terraform_root is not None):
                     iac_checkov_failed = True
                 continue
 
             if not result.findings:
                 log.info("%s: no findings.", key)
-                summary_rows.append(_ScanRow(key=key, status="ok"))
+                executions.append(row)
                 continue
 
             data = api_client.post_findings(api_url, api_key, driver.bulk_endpoint, result.findings)
             ingested = data.get("ingested", len(result.findings))
-            deduped = data.get("deduplicated", 0)
-            new_count = ingested - deduped
-            log.info("%s: %d finding(s) ingested (%d new after dedup).", key, ingested, deduped)
-            summary_rows.append(
-                _ScanRow(
-                    key=key,
-                    status="ok",
-                    findings=ingested,
-                    ingested=ingested,
-                    new_after_dedup=new_count,
-                )
-            )
+            deduped = data.get("deduplicated")
+            row.finding_count = ingested
+            # The ingestion API merges duplicates server-side; a "new" count is shown only
+            # when the API reports how many were merged.
+            row.new_after_dedup = None if deduped is None else max(ingested - deduped, 0)
+            if row.new_after_dedup is None:
+                log.info("%s: %d finding(s) uploaded.", key, ingested)
+            else:
+                log.info("%s: %d finding(s) uploaded (%d new after dedup).", key, ingested, row.new_after_dedup)
+            executions.append(row)
 
-        _print_scan_summary(summary_rows)
+        execution.print_summary(executions)
+        api_client.post_scan_executions(
+            api_url, api_key, args.project_id, args.pipeline_run_id,
+            [e.to_api() for e in executions])
 
         if iac_checkov_failed and require_iac:
             log.error(
@@ -402,6 +399,15 @@ def cmd_scan(args: argparse.Namespace) -> None:
             "Infrastructure analysis skipped: neither --terraform-plan-json nor "
             "--terraform-root was supplied.")
 
+    sbom_output = getattr(args, "sbom_output", None)
+    if sbom_output:
+        sbom_path = _resolve_output_file(sbom_output, "--sbom-output")
+        try:
+            sbom.generate(_WORKSPACE, sbom_path)
+        except Exception as exc:
+            log.error("SBOM generation FAILED: %s", exc)
+            sys.exit(2)
+
     log.info("Scan complete.")
 
 
@@ -409,6 +415,12 @@ def cmd_gate(args: argparse.Namespace) -> None:
     api_url = config.get_api_url()
     api_key = config.require_env("SECUREOBS_API_KEY")
     gate_module.run(api_url, api_key, args.project_id, args.pipeline_run_id)
+
+
+def cmd_import_iast(args: argparse.Namespace) -> int:
+    api_url = config.get_api_url()
+    api_key = config.require_env("SECUREOBS_API_KEY")
+    return iast_command.run(args, api_url, api_key)
 
 
 def cmd_pr_comment(args: argparse.Namespace) -> None:
@@ -439,9 +451,44 @@ def main() -> None:
     )
     _add_common_args(scan_p)
     _add_iac_args(scan_p)
+    scan_p.add_argument(
+        "--sbom-output",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Also write a CycloneDX SBOM (inventory of every dependency Trivy finds) to this "
+            "path — relative to /workspace, or absolute under /workspace or /output. The SBOM "
+            "stays in the CI job; SecureObs never uploads or stores it."
+        ),
+    )
 
-    gate_p = sub.add_parser("gate", help="Check for blocking findings. Exits 3 if blocked.")
+    gate_p = sub.add_parser(
+        "gate",
+        help="Evaluate the build gate. Exits 3 on blocking findings, 4 when a required "
+             "security check did not complete.")
     _add_common_args(gate_p)
+
+    iast_p = sub.add_parser(
+        "import-iast",
+        help=(
+            "Import a report produced by an IAST agent while your tests exercised an "
+            "instrumented application. This command does not run or instrument anything."
+        ),
+    )
+    _add_common_args(iast_p)
+    iast_p.add_argument("--file", required=True, metavar="PATH",
+                        help="Report path inside the container, e.g. /reports/iast.sarif (mount it read-only).")
+    iast_p.add_argument("--format", required=True, choices=["sarif"],
+                        help="Report format. SARIF 2.1.0 is the supported interchange format.")
+    iast_p.add_argument("--provider", required=True, choices=sorted(iast_providers.PROVIDERS),
+                        help="IAST engine that produced the report: 'sarif' (generic SARIF 2.1.0 "
+                             "IAST export) or 'contrast' (unverified).")
+    iast_p.add_argument("--test-session-id", default=None, metavar="ID",
+                        help="Test session to record (defaults to the report's automationDetails.id).")
+    iast_p.add_argument("--environment", default=None, metavar="NAME",
+                        help="Short label for the test environment, e.g. 'ci' or 'staging'.")
+    iast_p.add_argument("--max-report-bytes", type=int, default=iast_sarif.DEFAULT_MAX_REPORT_BYTES,
+                        metavar="BYTES", help="Reject larger reports (default 10 MiB, maximum 50 MiB).")
 
     pr_p = sub.add_parser("pr-comment", help="Post or update a PR comment with scan results.")
     _add_common_args(pr_p)
@@ -458,6 +505,8 @@ def main() -> None:
         cmd_scan(args)
     elif args.command == "gate":
         cmd_gate(args)
+    elif args.command == "import-iast":
+        sys.exit(cmd_import_iast(args))
     elif args.command == "pr-comment":
         cmd_pr_comment(args)
 

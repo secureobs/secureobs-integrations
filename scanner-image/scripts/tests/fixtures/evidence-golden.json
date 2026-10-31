@@ -1,0 +1,216 @@
+{
+ "projectId": "00000000-0000-0000-0000-0000000000a1",
+ "pipelineRunId": "golden-run-1",
+ "entries": [
+  {
+   "label": "trivy-lodash-4.17.20-CVE-2021-23337",
+   "finding": {
+    "scanner": "trivy",
+    "ruleId": "CVE-2021-23337",
+    "filePath": "web/package-lock.json",
+    "codeSnippet": null,
+    "severity": "HIGH",
+    "description": "nodejs-lodash: command injection via template (lodash 4.17.20).\n\nLodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+    "cweIds": [
+     "CWE-94"
+    ],
+    "owaspCategories": null,
+    "startLine": 29,
+    "endLine": 32,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "QlnoVu5TNoV2J2WzmbABt+X5t5ZeTjl8eE8+QF6sioc=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"sca\",\"sca\":{\"ecosystem\":\"npm\",\"packageName\":\"lodash\",\"installedVersion\":\"4.17.20\",\"fixedVersions\":[\"4.17.21\"],\"fixStatus\":\"fixed\",\"purl\":\"pkg:npm/lodash@4.17.20\",\"manifestPath\":\"web/package-lock.json\",\"dependencyRelationship\":\"direct\",\"vulnerabilityId\":\"CVE-2021-23337\",\"aliases\":[\"GHSA-35jh-r3h4-6jhm\"],\"title\":\"nodejs-lodash: command injection via template\",\"summary\":\"Lodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.\",\"severity\":\"HIGH\",\"severitySource\":\"ghsa\",\"cvssScore\":7.2,\"cvssVector\":\"CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H\",\"cweIds\":[\"CWE-94\"],\"advisoryUrl\":\"https://osv.dev/vulnerability/CVE-2021-23337\",\"references\":[\"https://avd.aquasec.com/nvd/cve-2021-23337\",\"https://access.redhat.com/security/cve/CVE-2021-23337\",\"https://github.com/advisories/GHSA-35jh-r3h4-6jhm\",\"https://nvd.nist.gov/vuln/detail/CVE-2021-23337\",\"https://ubuntu.com/security/notices/USN-8411-1\"],\"publishedAt\":\"2021-02-15T13:15:12.56Z\",\"detectedBy\":[\"trivy\"]}}"
+   }
+  },
+  {
+   "label": "osv-lodash-4.17.20-CVE-2021-23337",
+   "finding": {
+    "scanner": "osv-scanner",
+    "ruleId": "CVE-2021-23337",
+    "filePath": "web/package-lock.json",
+    "codeSnippet": null,
+    "severity": "HIGH",
+    "description": "Command Injection in lodash (lodash 4.17.20).\n\n`lodash` versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+    "cweIds": [
+     "CWE-77",
+     "CWE-94"
+    ],
+    "owaspCategories": null,
+    "startLine": null,
+    "endLine": null,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "H8112a7c7CjJABwPHu3kAF0CZPTNjCneMEmsJnmBelA=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"sca\",\"sca\":{\"ecosystem\":\"npm\",\"packageName\":\"lodash\",\"installedVersion\":\"4.17.20\",\"fixedVersions\":[\"4.17.21\"],\"fixStatus\":\"fixed\",\"manifestPath\":\"web/package-lock.json\",\"vulnerabilityId\":\"CVE-2021-23337\",\"aliases\":[\"CVE-2026-4800\",\"GHSA-35jh-r3h4-6jhm\",\"GHSA-r5fr-rjxr-66jc\"],\"title\":\"Command Injection in lodash\",\"summary\":\"`lodash` versions prior to 4.17.21 are vulnerable to Command Injection via the template function.\",\"severity\":\"HIGH\",\"severitySource\":\"osv-max-cvss\",\"cvssScore\":7.2,\"cvssVector\":\"CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H\",\"cweIds\":[\"CWE-77\",\"CWE-94\"],\"advisoryUrl\":\"https://osv.dev/vulnerability/CVE-2021-23337\",\"references\":[\"https://nvd.nist.gov/vuln/detail/CVE-2021-23337\"],\"publishedAt\":\"2021-05-06T16:05:51Z\",\"detectedBy\":[\"osv-scanner\"]}}"
+   }
+  },
+  {
+   "label": "trivy-lodash-4.17.15-CVE-2021-23337",
+   "finding": {
+    "scanner": "trivy",
+    "ruleId": "CVE-2021-23337",
+    "filePath": "web/package-lock.json",
+    "codeSnippet": null,
+    "severity": "HIGH",
+    "description": "nodejs-lodash: command injection via template (lodash 4.17.15).\n\nLodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+    "cweIds": [
+     "CWE-94"
+    ],
+    "owaspCategories": null,
+    "startLine": 25,
+    "endLine": 28,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "ZfNiXg8Lbv4V92Ymgfa2xuLbYLZgpLorQnkzP4CjbSc=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"sca\",\"sca\":{\"ecosystem\":\"npm\",\"packageName\":\"lodash\",\"installedVersion\":\"4.17.15\",\"fixedVersions\":[\"4.17.21\"],\"fixStatus\":\"fixed\",\"purl\":\"pkg:npm/lodash@4.17.15\",\"manifestPath\":\"web/package-lock.json\",\"dependencyRelationship\":\"transitive\",\"vulnerabilityId\":\"CVE-2021-23337\",\"aliases\":[\"GHSA-35jh-r3h4-6jhm\"],\"title\":\"nodejs-lodash: command injection via template\",\"summary\":\"Lodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.\",\"severity\":\"HIGH\",\"severitySource\":\"ghsa\",\"cvssScore\":7.2,\"cvssVector\":\"CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H\",\"cweIds\":[\"CWE-94\"],\"advisoryUrl\":\"https://osv.dev/vulnerability/CVE-2021-23337\",\"references\":[\"https://avd.aquasec.com/nvd/cve-2021-23337\",\"https://access.redhat.com/security/cve/CVE-2021-23337\",\"https://github.com/advisories/GHSA-35jh-r3h4-6jhm\",\"https://nvd.nist.gov/vuln/detail/CVE-2021-23337\",\"https://ubuntu.com/security/notices/USN-8411-1\"],\"publishedAt\":\"2021-02-15T13:15:12.56Z\",\"detectedBy\":[\"trivy\"]}}"
+   }
+  },
+  {
+   "label": "trivy-newtonsoft-CVE-2024-21907",
+   "finding": {
+    "scanner": "trivy",
+    "ruleId": "CVE-2024-21907",
+    "filePath": "src/Api/packages.lock.json",
+    "codeSnippet": null,
+    "severity": "HIGH",
+    "description": "Improper Handling of Exceptional Conditions in Newtonsoft.Json (Newtonsoft.Json 12.0.1).\n\nNewtonsoft.Json before version 13.0.1 is affected by a mishandling of exceptional conditions vulnerability. Crafted data that is passed to the JsonConvert.DeserializeObject method may trigger a StackOverflow exception resulting in denial of service. Depending on the usage of the library, an unauthenticated and remote attacker may be able to cause the denial of service condition.",
+    "cweIds": [
+     "CWE-755"
+    ],
+    "owaspCategories": null,
+    "startLine": 5,
+    "endLine": 10,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "NmDKxUm4kvabZYCdAH6+XZImWe8zKn1s8oEOv92YXEc=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"sca\",\"sca\":{\"ecosystem\":\"NuGet\",\"packageName\":\"Newtonsoft.Json\",\"installedVersion\":\"12.0.1\",\"fixedVersions\":[\"13.0.1\"],\"fixStatus\":\"fixed\",\"purl\":\"pkg:nuget/Newtonsoft.Json@12.0.1\",\"manifestPath\":\"src/Api/packages.lock.json\",\"dependencyRelationship\":\"direct\",\"vulnerabilityId\":\"CVE-2024-21907\",\"aliases\":[\"GHSA-5crp-9r3c-p9vr\"],\"title\":\"Improper Handling of Exceptional Conditions in Newtonsoft.Json\",\"summary\":\"Newtonsoft.Json before version 13.0.1 is affected by a mishandling of exceptional conditions vulnerability. Crafted data that is passed to the JsonConvert.DeserializeObject method may trigger a StackOverflow exception resulting in denial of service. Depending on the usage of the library, an unauthenticated and remote attacker may be able to cause the denial of service condition.\",\"severity\":\"HIGH\",\"severitySource\":\"ghsa\",\"cvssScore\":7.5,\"cvssVector\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H\",\"cweIds\":[\"CWE-755\"],\"advisoryUrl\":\"https://osv.dev/vulnerability/CVE-2024-21907\",\"references\":[\"https://avd.aquasec.com/nvd/cve-2024-21907\",\"https://github.com/advisories/GHSA-5crp-9r3c-p9vr\"],\"publishedAt\":\"2024-01-03T16:15:08.793Z\",\"detectedBy\":[\"trivy\"]}}"
+   }
+  },
+  {
+   "label": "osv-newtonsoft-CVE-2024-21907",
+   "finding": {
+    "scanner": "osv-scanner",
+    "ruleId": "CVE-2024-21907",
+    "filePath": "src/Api/packages.lock.json",
+    "codeSnippet": null,
+    "severity": "HIGH",
+    "description": "Improper Handling of Exceptional Conditions in Newtonsoft.Json (Newtonsoft.Json 12.0.1).\n\nNewtonsoft.Json prior to version 13.0.1 is vulnerable to Insecure Defaults due to improper handling of expressions with high nesting level that lead to StackOverFlow exception or high CPU and RAM usage. Exploiting this vulnerability results in Denial Of Service (DoS). \n\nThe serialization and deserialization path have different properties regarding the issue.\n\nDeserializing methods (like `JsonConvert.DeserializeObject`) will process the input that results in burning the CPU, allocating memory, and consuming a thread of execution. Quite high nesting level (>10kk, or 9.5MB of `{a:{a:{...` input) is needed to achieve the latency over 10 seconds, depending on the hardware.\n\nSerializing methods (like `JsonConvert.Serialize` or `JObject.ToString`) will throw StackOverFlow exception with the nesting level of around 20k.\n\nTo mitigate the issue one either need to update Newtonsoft.Json to 13.0.1 or set `MaxDepth` parameter in the `JsonSerializerSettings`. This can be done globally with the following statement. After that the parsing of the nested input will fail fast with `Newtonsoft.Json.JsonReaderException`:\n\n``` \nJsonConvert.DefaultSettings = () => new JsonSerializerSettings { MaxDepth = 128 };\n```\n\nRepro code:\n```\n//Create a string representation of an highly nested object (JSON serialized)\nint nRep = 25000;\nstring json = string.Concat(Enumerable.Repeat(\"{a:\", nRep)) + \"1\" +\n string.Concat(Enumerable.Repeat(\"}\", nRep));\n\n//Parse this object (leads to high CPU/RAM consumption)\nvar parsedJson = JsonConvert.DeserializeObject(json);\n\n// Methods below all throw stack overflow with nRep around 20k and higher\n// string a = parsedJson.ToString();\n// string b = JsonConvert.SerializeObject(parsedJson);\n```\n\n### Additional affected product and version information\n**The original statement about the problem only affecting IIS applications is misleading.** Any application is affected, however the IIS has a behavior that stops restarting the instance after some time resulting in a harder-to-fix DoS.**",
+    "cweIds": [
+     "CWE-755"
+    ],
+    "owaspCategories": null,
+    "startLine": null,
+    "endLine": null,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "zBVdQJROJKqTOa6J02OMijNAe1f8A/U67xrQW8SErW8=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"sca\",\"sca\":{\"ecosystem\":\"NuGet\",\"packageName\":\"Newtonsoft.Json\",\"installedVersion\":\"12.0.1\",\"fixedVersions\":[\"13.0.1\"],\"fixStatus\":\"fixed\",\"manifestPath\":\"src/Api/packages.lock.json\",\"vulnerabilityId\":\"CVE-2024-21907\",\"aliases\":[\"GHSA-5crp-9r3c-p9vr\"],\"title\":\"Improper Handling of Exceptional Conditions in Newtonsoft.Json\",\"summary\":\"Newtonsoft.Json prior to version 13.0.1 is vulnerable to Insecure Defaults due to improper handling of expressions with high nesting level that lead to StackOverFlow exception or high CPU and RAM usage. Exploiting this vulnerability results in Denial Of Service (DoS). \\n\\nThe serialization and deserialization path have different properties regarding the issue.\\n\\nDeserializing methods (like `JsonConvert.DeserializeObject`) will process the input that results in burning the CPU, allocating memory, and consuming a thread of execution. Quite high nesting level (>10kk, or 9.5MB of `{a:{a:{...` input) is needed to achieve the latency over 10 seconds, depending on the hardware.\\n\\nSerializing methods (like `JsonConvert.Serialize` or `JObject.ToString`) will throw StackOverFlow exception with the nesting level of around 20k.\\n\\nTo mitigate the issue one either need to update Newtonsoft.Json to 13.0.1 or set `MaxDepth` parameter in the `JsonSerializerSettings`. This can be done globally with the following statement. After that the parsing of the nested input will fail fast with `Newtonsoft.Json.JsonReaderException`:\\n\\n``` \\nJsonConvert.DefaultSettings = () => new JsonSerializerSettings { MaxDepth = 128 };\\n```\\n\\nRepro code:\\n```\\n//Create a string representation of an highly nested object (JSON serialized)\\nint nRep = 25000;\\nstring json = string.Concat(Enumerable.Repeat(\\\"{a:\\\", nRep)) + \\\"1\\\" +\\n string.Concat(Enumerable.Repeat(\\\"}\\\", nRep));\\n\\n//Parse this object (leads to high CPU/RAM consumption)\\nvar\u2026\",\"severity\":\"HIGH\",\"severitySource\":\"osv-max-cvss\",\"cvssScore\":7.5,\"cvssVector\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H\",\"cweIds\":[\"CWE-755\"],\"advisoryUrl\":\"https://osv.dev/vulnerability/CVE-2024-21907\",\"publishedAt\":\"2022-06-22T15:08:47Z\",\"detectedBy\":[\"osv-scanner\"]}}"
+   }
+  },
+  {
+   "label": "osv-log4j-core-CVE-2021-44228",
+   "finding": {
+    "scanner": "osv-scanner",
+    "ruleId": "CVE-2021-44228",
+    "filePath": "java/pom.xml",
+    "codeSnippet": null,
+    "severity": "CRITICAL",
+    "description": "Remote code injection in Log4j (org.apache.logging.log4j:log4j-core 2.14.1).\n\n# Summary\n\nLog4j versions prior to 2.16.0 are subject to a remote code execution vulnerability via the ldap JNDI parser.\nAs per [Apache's Log4j security guide](https://logging.apache.org/log4j/2.x/security.html): Apache Log4j2 <=2.14.1 JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints. An attacker who can control log messages or log message parameters can execute arbitrary code loaded from LDAP servers when message lookup substitution is enabled. From log4j 2.16.0, this behavior has been disabled by default.\n\nLog4j version 2.15.0 contained an earlier fix for the vulnerability, but that patch did not disable attacker-controlled JNDI lookups in all situations. For more information, see the `Updated advice for version 2.16.0` section of this advisory.\n\n# Impact\n\nLogging untrusted or user controlled data with a vulnerable version of Log4J may result in Remote Code Execution (RCE) against your application. This includes untrusted data included in logged errors such as exception traces, authentication failures, and other unexpected vectors of user controlled input. \n\n# Affected versions\n\nAny Log4J version prior to v2.15.0 is affected to this specific issue.\n\nThe v1 branch of Log4J which is considered End Of Life (EOL) is vulnerable to other RCE vectors so the recommendation is to still update to 2.16.0 where possible.\n\n## Security releases\nAdditional backports of this fix have been made available in versions 2.3.1, 2.12.2, and 2.12.3\n\n## Affected packages\nOnly the `org.apache.logging.log4j:log4j-core` package is directly affected by this vulnerability. The `org.apache.logging.log4j:log4j-api` should be kept at the same version as the `org.apache.logging.log4j:log4j-core` package to ensure compatability if in use.\n\n# Remediation Advice\n\n## Updated advice for version 2.16.0\n\nThe Apache Logging Services team provided updated mitigation advice upon the release of version 2.16.0, which [disables JNDI by default and completely removes support for message lookups](https://logging.apache.org/log4j/2.x/changes-report.html#a2.16.0).\nEven in version 2.15.0, lookups used in layouts to provide specific pieces of context information will still recursively resolve, possibly triggering JNDI lookups. This problem is being tracked as [CVE-2021-45046](https://nvd.nist.gov/vuln/detail/CVE-2021-45046). More information is available on the [GitHub Security Advisory for CVE-2021-45046](https://github.com/advisories/GHSA-7rjr-3q55-vv33).\n\nUsers who want to avoid attacker-controlled JNDI lookups but cannot upgrade to 2.16.0 must [ensure that no such lookups resolve to attacker-provided data and ensure that the the JndiLookup class is not loaded](https://issues.apache.org/jira/browse/LOG4J2-3221).\n\nPlease note that Log4J v1 is End Of Life (EOL) and will not receive patches for this issue. Log4J v1 is also vulnerable to other RCE vectors and we recommend you migrate to Log4J 2.16.0 where possible.",
+    "cweIds": [
+     "CWE-20",
+     "CWE-400",
+     "CWE-502",
+     "CWE-917"
+    ],
+    "owaspCategories": null,
+    "startLine": null,
+    "endLine": null,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "x4cUZZNLw1wXgjYp2+a9iaNcEW6mUkJtfWBuQeGTN/o=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"sca\",\"sca\":{\"ecosystem\":\"Maven\",\"packageName\":\"org.apache.logging.log4j:log4j-core\",\"installedVersion\":\"2.14.1\",\"fixedVersions\":[\"2.15.0\"],\"fixStatus\":\"fixed\",\"manifestPath\":\"java/pom.xml\",\"vulnerabilityId\":\"CVE-2021-44228\",\"aliases\":[\"GHSA-jfh8-c2jp-5v3q\"],\"title\":\"Remote code injection in Log4j\",\"summary\":\"# Summary\\n\\nLog4j versions prior to 2.16.0 are subject to a remote code execution vulnerability via the ldap JNDI parser.\\nAs per [Apache's Log4j security guide](https://logging.apache.org/log4j/2.x/security.html): Apache Log4j2 <=2.14.1 JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints. An attacker who can control log messages or log message parameters can execute arbitrary code loaded from LDAP servers when message lookup substitution is enabled. From log4j 2.16.0, this behavior has been disabled by default.\\n\\nLog4j version 2.15.0 contained an earlier fix for the vulnerability, but that patch did not disable attacker-controlled JNDI lookups in all situations. For more information, see the `Updated advice for version 2.16.0` section of this advisory.\\n\\n# Impact\\n\\nLogging untrusted or user controlled data with a vulnerable version of Log4J may result in Remote Code Execution (RCE) against your application. This includes untrusted data included in logged errors such as exception traces, authentication failures, and other unexpected vectors of user controlled input. \\n\\n# Affected versions\\n\\nAny Log4J version prior to v2.15.0 is affected to this specific issue.\\n\\nThe v1 branch of Log4J which is considered End Of Life (EOL) is vulnerable to other RCE vectors so the recommendation is to still update to 2.16.0 where possible.\\n\\n## Security releases\\nAdditional backports of this fix have been mad\u2026\",\"severity\":\"CRITICAL\",\"severitySource\":\"osv-max-cvss\",\"cvssScore\":10.0,\"cvssVector\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H/E:H\",\"cweIds\":[\"CWE-20\",\"CWE-400\",\"CWE-502\",\"CWE-917\"],\"advisoryUrl\":\"https://osv.dev/vulnerability/CVE-2021-44228\",\"references\":[\"https://nvd.nist.gov/vuln/detail/CVE-2021-44228\",\"https://github.com/advisories/GHSA-7rjr-3q55-vv33\"],\"publishedAt\":\"2021-12-10T00:40:56Z\",\"detectedBy\":[\"osv-scanner\"]}}"
+   }
+  },
+  {
+   "label": "trivy-secret-github-pat",
+   "finding": {
+    "scanner": "trivy",
+    "ruleId": "github-pat",
+    "filePath": "config/ci.env",
+    "codeSnippet": "GITHUB_TOKEN=****************************************",
+    "severity": "CRITICAL",
+    "description": "GitHub Personal Access Token",
+    "cweIds": null,
+    "owaspCategories": null,
+    "startLine": 1,
+    "endLine": 1,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "ejBz2e8/EF/qKyCcReuQDVgLTSHhFY9Yjwu3OzjEPK4=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"secret\",\"secret\":{\"ruleId\":\"github-pat\",\"category\":\"GitHub\",\"title\":\"GitHub Personal Access Token\",\"detectedBy\":[\"trivy\"]}}"
+   }
+  },
+  {
+   "label": "trivy-iac-DS-0001",
+   "finding": {
+    "scanner": "trivy",
+    "ruleId": "DS-0001",
+    "filePath": "Dockerfile",
+    "codeSnippet": null,
+    "severity": "MEDIUM",
+    "description": "':latest' tag used\nSpecify a tag in the 'FROM' statement for image 'node'",
+    "cweIds": null,
+    "owaspCategories": null,
+    "startLine": 1,
+    "endLine": 1,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "dXK5u/mgzjrbTOEPbIVyqL1H0vzOXeF/+aFeNqkOHIU=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"iac\",\"iac\":{\"ruleId\":\"DS-0001\",\"title\":\"':latest' tag used\",\"resolution\":\"Add a tag to the image in the 'FROM' statement\",\"provider\":\"Dockerfile\",\"service\":\"general\",\"advisoryUrl\":\"https://avd.aquasec.com/misconfig/ds-0001\",\"detectedBy\":[\"trivy\"]}}"
+   }
+  },
+  {
+   "label": "iast-sql-injection",
+   "finding": {
+    "scanner": "iast",
+    "ruleId": "sql-injection",
+    "filePath": "app/src/Orders/OrderRepository.cs",
+    "codeSnippet": null,
+    "severity": "CRITICAL",
+    "description": "SQL injection at POST /api/users/{id}/orders/{uuid}.\n\nRequest parameter 'id' flowed into SqlCommand.ExecuteReader without parameterization.",
+    "cweIds": [
+     "CWE-89"
+    ],
+    "owaspCategories": null,
+    "startLine": 57,
+    "endLine": 59,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "g6C+gzavtZ7qv0/uNAVU+wCk5HCj+w8JGGqN0rceNBw=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"iast\",\"iast\":{\"testingMethod\":\"IAST\",\"provider\":\"sarif\",\"providerName\":\"Generic SARIF 2.1.0 (IAST engine)\",\"providerVerified\":true,\"tool\":\"ExampleIAST Agent\",\"toolVersion\":\"4.2.0\",\"ruleId\":\"sql-injection\",\"title\":\"SQL injection\",\"category\":\"SqlInjection\",\"severity\":\"CRITICAL\",\"severitySource\":\"security-severity\",\"cvssScore\":9.1,\"cweIds\":[\"CWE-89\"],\"method\":\"POST\",\"route\":\"/api/users/{id}/orders/{uuid}\",\"codePath\":\"app/src/Orders/OrderRepository.cs\",\"codeStartLine\":57,\"codeEndLine\":59,\"codeFunction\":\"Shop.Orders.OrderRepository.FindById\",\"flow\":[{\"location\":\"src/Orders/OrdersController.cs:22\",\"kinds\":[\"source\"],\"note\":\"Untrusted input: route value 'id'\"},{\"function\":\"Shop.Orders.OrderService.Get\"},{\"location\":\"src/Orders/OrderRepository.cs:58\",\"kinds\":[\"sink\"],\"note\":\"SQL executed: SELECT * FROM Orders WHERE Id = 9817\"}],\"message\":\"Request parameter 'id' flowed into SqlCommand.ExecuteReader without parameterization.\",\"remediation\":\"Use parameterized queries (e.g. SqlParameter or an ORM) instead of building SQL from request data.\",\"helpUrl\":\"https://iast.example.com/rules/sql-injection\",\"vendorFindingId\":\"6f1c2a8e-3b9d-4e7f-a1c2-0d9e8f7a6b5c\",\"testSession\":\"nightly-integration-tests/2026-10-14\",\"firstObservedAt\":\"2026-10-13T08:00:00Z\",\"lastObservedAt\":\"2026-10-14T02:15:30Z\"}}"
+   }
+  },
+  {
+   "label": "iast-xss-runtime-only",
+   "finding": {
+    "scanner": "iast",
+    "ruleId": "reflected-xss",
+    "filePath": null,
+    "codeSnippet": null,
+    "severity": "MEDIUM",
+    "description": "Reflected cross-site scripting at GET /api/orders/{id}/items.\n\nParameter 'q' was rendered into HTML without encoding.",
+    "cweIds": [
+     "CWE-79"
+    ],
+    "owaspCategories": null,
+    "startLine": null,
+    "endLine": null,
+    "projectId": "00000000-0000-0000-0000-0000000000a1",
+    "pipelineRunId": "golden-run-1",
+    "fingerprint": "mCDTCOFUsprRtv3xW+KNPE6e65+c4TMcB5qwfDaoPQw=",
+    "rawPayload": "{\"schema\":\"secureobs.evidence.v1\",\"kind\":\"iast\",\"iast\":{\"testingMethod\":\"IAST\",\"provider\":\"sarif\",\"providerName\":\"Generic SARIF 2.1.0 (IAST engine)\",\"providerVerified\":true,\"tool\":\"ExampleIAST Agent\",\"toolVersion\":\"4.2.0\",\"ruleId\":\"reflected-xss\",\"title\":\"Reflected cross-site scripting\",\"category\":\"ReflectedXss\",\"severity\":\"MEDIUM\",\"severitySource\":\"sarif-level\",\"cweIds\":[\"CWE-79\"],\"method\":\"GET\",\"route\":\"/api/orders/{id}/items\",\"message\":\"Parameter 'q' was rendered into HTML without encoding.\",\"remediation\":\"Encode untrusted data for the HTML context before rendering it.\",\"vendorFindingId\":\"routeHash/v1=a1b2c3d4e5f60718\",\"testSession\":\"nightly-integration-tests/2026-10-14\"}}"
+   }
+  }
+ ]
+}
