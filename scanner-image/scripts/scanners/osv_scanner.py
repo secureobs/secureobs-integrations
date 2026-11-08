@@ -12,14 +12,15 @@ the captured fixtures under ``tests/fixtures/osv-1.9.2``:
 * ``osv-scanner scan <dir>`` exists in v1.9.2 but is NOT recursive; the
   top-level ``--recursive`` form is the one that finds nested lockfiles.
 * Exit codes: 0 clean, 1 vulnerabilities found, 128 no package sources found
-  (also when the only lockfile fails to parse), anything else is a failure
-  (e.g. 129 when api.osv.dev is unreachable).
+  (also when the only lockfile fails to parse), 127 general error, and 129
+  when api.osv.dev is unreachable.
 """
 from __future__ import annotations
 
 import logging
 import re
 import subprocess
+from pathlib import PurePosixPath
 from typing import Any
 
 from . import evidence, sca, tool_output
@@ -28,6 +29,7 @@ from .base import ScanResult
 log = logging.getLogger(__name__)
 
 _OUTPUT_FILE = "/tmp/osv-results.json"
+_GENERAL_ERROR_EXIT = 127
 _NO_SOURCES_EXIT = 128
 # v1.9.2 exits 129 when a call to api.osv.dev fails (observed: proxy 403, no network).
 _API_FAILURE_EXIT = 129
@@ -36,10 +38,18 @@ _SCANNED_RE = re.compile(r"^Scanned (.+) file and found \d+ packages?$")
 
 NO_SOURCES_REASON = "no_supported_manifests"
 NO_SOURCES_WARNING = "No supported dependency manifest or lockfile was found."
+MAVEN_FALLBACK_WARNING = (
+    "Maven resolution failed. Retried using dependencies declared in pom.xml "
+    "without resolving the transitive dependency graph."
+)
 
 
-def build_command(source_dir: str, output_path: str = _OUTPUT_FILE) -> list[str]:
-    return ["osv-scanner", "--format", "json", "--output", output_path, "--recursive", source_dir]
+def build_command(source_dir: str, output_path: str = _OUTPUT_FILE, *,
+                  resolve_maven: bool = True) -> list[str]:
+    command = ["osv-scanner", "--format", "json", "--output", output_path, "--recursive"]
+    if not resolve_maven:
+        command.append("--experimental-no-resolve")
+    return [*command, source_dir]
 
 
 def run(
@@ -50,19 +60,36 @@ def run(
 ) -> ScanResult:
     del config
     log.info("Running OSV-Scanner on %s", source_dir)
-    tool_output.remove_stale(_OUTPUT_FILE)
 
+    proc = _invoke(source_dir)
+    retry_maven = proc.returncode in (_GENERAL_ERROR_EXIT, _NO_SOURCES_EXIT) and any(
+        PurePosixPath(path).name == "pom.xml"
+        for path in _unparsed_lockfiles(proc.stderr, source_dir)
+    )
+    if retry_maven:
+        log.warning("osv-scanner: retrying without Maven transitive dependency resolution")
+        proc = _invoke(source_dir, resolve_maven=False)
+
+    result = interpret(proc.returncode, proc.stderr, _OUTPUT_FILE,
+                       source_dir, project_id, pipeline_run_id)
+    if retry_maven:
+        if result.skipped:
+            raise RuntimeError("osv-scanner found no package sources on the Maven retry")
+        result.warnings.insert(0, MAVEN_FALLBACK_WARNING)
+    return result
+
+
+def _invoke(source_dir: str, *, resolve_maven: bool = True) -> subprocess.CompletedProcess[str]:
+    tool_output.remove_stale(_OUTPUT_FILE)
     try:
-        proc = subprocess.run(
-            build_command(source_dir), capture_output=True, text=True,
+        return subprocess.run(
+            build_command(source_dir, _OUTPUT_FILE, resolve_maven=resolve_maven),
+            capture_output=True, text=True,
             timeout=tool_output.TOOL_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
             f"osv-scanner exceeded the {tool_output.TOOL_TIMEOUT_SECONDS}-second limit") from exc
-
-    return interpret(proc.returncode, proc.stderr or "", _OUTPUT_FILE,
-                     source_dir, project_id, pipeline_run_id)
 
 
 def interpret(returncode: int, stderr: str, output_path: str, source_dir: str,
@@ -86,9 +113,13 @@ def interpret(returncode: int, stderr: str, output_path: str, source_dir: str,
             f"osv-scanner could not query the OSV vulnerability API (exit {returncode}; check "
             f"outbound HTTPS to api.osv.dev): {tool_output.stderr_tail(stderr)}")
     if returncode not in (0, 1):
+        if returncode == _GENERAL_ERROR_EXIT and unparsed:
+            raise RuntimeError(
+                f"osv-scanner could not scan lockfile(s) (exit {returncode}): "
+                + ", ".join(unparsed[:5]))
         raise RuntimeError(
             f"osv-scanner exited with unexpected code {returncode}: "
-            f"{tool_output.stderr_tail(stderr)}")
+            f"{tool_output.stderr_tail(stderr, limit=200)}")
 
     data = tool_output.load_json_output(output_path, "osv-scanner")
     result = parse_report(data, source_dir, project_id, pipeline_run_id)

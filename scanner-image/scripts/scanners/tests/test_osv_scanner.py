@@ -259,6 +259,49 @@ def test_run_invokes_real_command_and_interprets(monkeypatch, tmp_path):
     assert result.not_applicable
 
 
+@pytest.mark.parametrize("exit_code", [127, 128])
+def test_retries_failed_maven_resolution_with_coverage_warning(monkeypatch, tmp_path, exit_code):
+    output = tmp_path / "osv.json"
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        assert not output.exists()
+        if len(calls) == 1:
+            output.write_text('{"results": []}', encoding="utf-8")
+            stderr = "Attempted to scan lockfile but failed: /workspace/java/pom.xml\n"
+            return subprocess.CompletedProcess(cmd, exit_code, "", stderr)
+        output.write_text((FIXTURES / "recursive-mixed.json").read_text(), encoding="utf-8")
+        stderr = "Scanned /workspace/java/pom.xml file and found 2 packages\n"
+        return subprocess.CompletedProcess(cmd, 1, "", stderr)
+
+    monkeypatch.setattr(osv_scanner.subprocess, "run", fake_run)
+    monkeypatch.setattr(osv_scanner, "_OUTPUT_FILE", str(output))
+    result = osv_scanner.run(WORKSPACE, "p", "r")
+
+    assert len(calls) == 2
+    assert "--experimental-no-resolve" not in calls[0]
+    assert calls[1][-3:] == ["--recursive", "--experimental-no-resolve", WORKSPACE]
+    assert _find(result, "org.apache.logging.log4j:log4j-core", "2.14.1", "CVE-2021-44228")
+    assert result.warnings == [osv_scanner.MAVEN_FALLBACK_WARNING]
+
+
+@pytest.mark.parametrize("manifest, retry_count", [("java/pom.xml", 2), ("package-lock.json", 1)])
+def test_unreadable_manifests_still_fail(monkeypatch, tmp_path, manifest, retry_count):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        stderr = f"Attempted to scan lockfile but failed: /workspace/{manifest}\n"
+        return subprocess.CompletedProcess(cmd, 127, "", stderr)
+
+    monkeypatch.setattr(osv_scanner.subprocess, "run", fake_run)
+    monkeypatch.setattr(osv_scanner, "_OUTPUT_FILE", str(tmp_path / "osv.json"))
+    with pytest.raises(RuntimeError, match=f"could not scan lockfile.*{manifest}"):
+        osv_scanner.run(WORKSPACE, "p", "r")
+    assert len(calls) == retry_count
+
+
 def test_timeout_is_a_failure(monkeypatch, tmp_path):
     def fake_run(cmd, **kwargs):
         raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))

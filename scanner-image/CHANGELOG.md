@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.4.3 — 2026-11-08
+
 ## v1.4.2 — 2026-10-30
 
 **Fix (IAST import):** Enforce an explicit 128-level JSON nesting limit before decoding SARIF reports, including on Python versions that accept extremely deep JSON without a recursion error.
